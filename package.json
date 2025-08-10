@@ -10,10 +10,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-  "init:author": "tsx src/scripts/initAuthor.ts",
-  "typecheck": "tsc --noEmit",
-  "analyze": "cross-env ANALYZE=1 next build",
-  "ci": "npm run lint && npm run typecheck && npm run build"
+    "init:author": "tsx src/scripts/initAuthor.ts",
+    "typecheck": "tsc --noEmit",
+    "analyze": "cross-env ANALYZE=1 next build",
+    "ci": "npm run lint && npm run typecheck && npm run build",
+    "vercel-build": "next build"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
