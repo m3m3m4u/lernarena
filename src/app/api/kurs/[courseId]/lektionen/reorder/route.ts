@@ -7,14 +7,14 @@ import { authOptions } from '@/lib/authOptions';
 
 // POST: Reorder lessons in a course
 // Body: { order: string[] }  (array of lesson ids in desired order)
-export async function POST(req: NextRequest, { params }: { params: { courseId: string } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ courseId: string }> }) {
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ success: false, error: 'Nicht authentifiziert' }, { status: 401 });
     const username = (session.user as any).username;
     const role = (session.user as any).role;
-    const courseId = params.courseId;
+  const { courseId } = await context.params;
     const course = await Course.findById(courseId).lean();
     if (!course) return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
     if (course.author !== username && role !== 'author') {

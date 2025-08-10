@@ -6,8 +6,8 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 
 // PATCH: Teil-Update von Kurs-Einstellungen (z.B. progressionMode)
-export async function PATCH(req: NextRequest, { params }: { params: { courseId: string } }) {
-  const { courseId } = params;
+export async function PATCH(req: NextRequest, context: { params: Promise<{ courseId: string }> }) {
+  const { courseId } = await context.params;
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);

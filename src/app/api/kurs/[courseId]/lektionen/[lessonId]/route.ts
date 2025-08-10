@@ -11,10 +11,10 @@ import AuditLog from '@/models/AuditLog';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { courseId: string; lessonId: string } }
+  context: { params: Promise<{ courseId: string; lessonId: string }> }
 ) {
   try {
-    const { courseId, lessonId } = params;
+    const { courseId, lessonId } = await context.params;
     await dbConnect();
     
     const lesson = await Lesson.findOne({ _id: lessonId, courseId });
@@ -41,10 +41,10 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { courseId: string; lessonId: string } }
+  context: { params: Promise<{ courseId: string; lessonId: string }> }
 ) {
   try {
-    const { courseId, lessonId } = params;
+    const { courseId, lessonId } = await context.params;
     await dbConnect();
     
   const body = await request.json();
@@ -382,10 +382,10 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { courseId: string; lessonId: string } }
+  context: { params: Promise<{ courseId: string; lessonId: string }> }
 ) {
   try {
-    const { courseId, lessonId } = params;
+    const { courseId, lessonId } = await context.params;
     await dbConnect();
     
     // Autorisierung

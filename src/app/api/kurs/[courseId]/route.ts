@@ -23,11 +23,11 @@ const ALLOWED_CATEGORIES = [
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
     await dbConnect();
-    const { courseId } = params;
+    const { courseId } = await context.params;
 
     const course = await Course.findById(courseId);
     if (!course) {
@@ -58,7 +58,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
     // Auth vorübergehend deaktiviert
@@ -71,7 +71,7 @@ export async function PUT(
     // }
 
     await dbConnect();
-    const { courseId } = params;
+  const { courseId } = await context.params;
     const body = await request.json();
 
     // Falls nur veröffentlicht werden soll, ohne andere Felder
@@ -136,11 +136,11 @@ export async function PUT(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
     await dbConnect();
-    const { courseId } = params;
+    const { courseId } = await context.params;
     const body = await request.json();
 
     if (body.publish === true) {
@@ -158,7 +158,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
     // Temporär für Tests ohne Authentifizierung
@@ -170,8 +170,8 @@ export async function DELETE(
     //   );
     // }
 
-    await dbConnect();
-    const { courseId } = params;
+  await dbConnect();
+  const { courseId } = await context.params;
     
   // Lektions-IDs sammeln für Fortschrittsbereinigung
   const lessonIds = await Lesson.find({ courseId }).select('_id').lean();
