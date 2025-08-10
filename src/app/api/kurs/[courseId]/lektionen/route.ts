@@ -31,12 +31,14 @@ type PostBody = {
   text?: string;
 };
 
+// Hinweis Next.js 15: params ist jetzt asynchron und muss awaited werden
 export async function GET(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    let { courseId } = params || ({} as any);
+    const awaited = await context.params;
+    let { courseId } = awaited || ({} as any);
     if (!courseId) {
       // Fallback: aus URL extrahieren
       try {
@@ -61,10 +63,11 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  context: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    let { courseId } = params || ({} as any);
+    const awaited = await context.params;
+    let { courseId } = awaited || ({} as any);
     if (!courseId) {
       // Fallback: aus URL extrahieren
       try {
