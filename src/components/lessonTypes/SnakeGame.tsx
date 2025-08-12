@@ -1,10 +1,11 @@
 "use client";
-import React from 'react';
+import React, { useState } from 'react';
 import type { Lesson } from './types';
 import { CELL, COLS, ROWS } from './snake/constants';
 import { useSnakeRendering } from './snake/useSnakeRendering';
 import { useSnakeLogic } from './snake/useSnakeLogic';
 import { useSession } from 'next-auth/react';
+import PlaneGame from './plane/PlaneGame';
 // finalizeLesson Logik ist nun im useSnakeLogic Hook gekapselt
 
 interface Props { lesson: Lesson; courseId: string; completedLessons: string[]; setCompletedLessons: (v: string[] | ((p:string[])=>string[]))=>void; }
@@ -13,16 +14,38 @@ interface Props { lesson: Lesson; courseId: string; completedLessons: string[]; 
 // (Defaults werden im Logic-Hook gehandhabt)
 
 export default function SnakeGame({ lesson, courseId, completedLessons, setCompletedLessons }: Props){
+  // Toggle zwischen Snake und Flugzeug Variante
+  const [variant, setVariant] = useState<'snake'|'plane'>('snake');
   const { data: session } = useSession();
   const { snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking, setShowHelp, setRunning, restart, blocksLength } = useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername: session?.user?.username });
   const canvasRef = useSnakeRendering({ snake, foods, food, blocksLength, score, finished, targetScore });
   // (Alle Spiel-/Abschluss-Logik jetzt komplett im Hook)
 
+  if(variant === 'plane'){
+    return (
+      <div className="w-full flex flex-col gap-3">
+        <div className="flex justify-center gap-2 mb-1">
+          <button onClick={()=> setVariant('snake')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
+          <button disabled className="px-3 py-1 text-xs rounded border bg-emerald-600 text-white shadow-sm">✈️ Flugzeug</button>
+        </div>
+        <PlaneGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full flex flex-col lg:flex-row gap-6">
+    <div className="w-full flex flex-col gap-4">
+      <div className="flex justify-center gap-2 order-first">
+        <button disabled className="px-3 py-1 text-xs rounded border bg-emerald-600 text-white shadow-sm">🐍 Snake</button>
+        <button onClick={()=> setVariant('plane')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
+      </div>
+      <div className="w-full flex flex-col lg:flex-row gap-6">
       {/* Info Panel */}
   <div className="lg:w-64 flex-shrink-0 bg-white border rounded p-4 space-y-4 h-fit min-h-[420px]">
-        <h2 className="text-lg font-semibold">🐍 Snake Quiz</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">🐍 Snake Quiz</h2>
+          <button onClick={()=> setVariant('plane')} className="px-2 py-1 text-[11px] rounded border bg-gray-50 hover:bg-white">✈️ Flugzeug</button>
+        </div>
         <div className="text-sm space-y-1">
           <div><span className="font-medium">Punkte:</span> {score} / {targetScore}</div>
           <div><span className="font-medium">Status:</span> {finished ? 'Abgeschlossen' : (running ? 'Läuft' : 'Pausiert')}</div>
@@ -57,9 +80,9 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
             Steuerung: Pfeiltasten oder Buttons. Triff das Feld der richtigen Antwortfarbe. Falsche Antwort oder Selbstkollision beendet das Spiel.
           </div>
         )}
-      </div>
-      {/* Spielfeld */}
-      <div className="flex-1">
+  </div>
+  {/* Spielfeld */}
+  <div className="flex-1 flex justify-center">
         <div className="inline-block relative">
           <canvas ref={canvasRef} width={COLS*CELL} height={ROWS*CELL} className="border rounded bg-white block" style={{aspectRatio:'1/1', width:'100%', maxWidth:COLS*CELL}} />
           {/* Start Overlay */}
@@ -83,6 +106,7 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
           )}
         </div>
     {marking && <div className="mt-2 text-xs text-gray-500">Speichere Abschluss…</div>}
+      </div>
       </div>
     </div>
   );
