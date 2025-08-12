@@ -93,7 +93,7 @@ function NeueLektionPageInner() {
   // Neu: Reihenfolge festlegen
     ordering: "🔢 Reihenfolge"
   , "text-answer": "✍️ Text-Antwort"
-  , snake: "🐍 Snake-Spiel"
+  , snake: "Minigame"
   } as const;
 
   function getEmptyTemplate(type: string) {
@@ -143,7 +143,7 @@ function NeueLektionPageInner() {
       case "text-answer":
         return { question: "", answer: "", partials: [], caseSensitive: false };
       case "snake":
-  return { questions: "Frage 1\n*Richtige Antwort\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\n*Richtig\nFalsch\nFalsch\nFalsch", targetScore: 10, difficulty: 'mittel' } as SnakeContent;
+        return { questions: "Frage 1\nRichtige Antwort\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\nRichtig\nFalsch\nFalsch\nFalsch", targetScore: 10, difficulty: 'mittel' } as SnakeContent;
       default:
         return {};
     }
@@ -243,20 +243,19 @@ function NeueLektionPageInner() {
           alert('Fragen/Antworten benötigt.');
           return;
         }
-        // Parser ähnlich MC: Blöcke durch Leerzeile; erste Zeile Frage, danach Antworten (* kennzeichnet korrekt)
+        // Parser: erste Zeile Frage, danach Antworten (erste Antwort = korrekt)
         const blocks = raw.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean).map(block => {
           const lines = block.split(/\n+/).map(l=>l.trim()).filter(Boolean);
-          if (lines.length < 2) return null;
+          if (lines.length < 3) return null; // mind. Frage + 2 Antworten
           const q = lines[0];
-          const answerLines = lines.slice(1);
-          const answers = answerLines.map(l=> l.replace(/^\*/,'')).slice(0,4); // max 4
-          const correctIndex = answerLines.findIndex(l=> l.startsWith('*'));
-          if (!q || answers.length < 2 || correctIndex === -1) return null;
-          return { question: q, answers, correct: correctIndex };
+          const answerLines = lines.slice(1).slice(0,4);
+          const answers = answerLines.map(l=> l.replace(/^\*/,'')).slice(0,4);
+          if (!q || answers.length < 2) return null;
+          return { question: q, answers, correct: 0 };
         }).filter(Boolean) as Array<{ question: string; answers: string[]; correct: number }>;
         if (!blocks.length) {
           setIsSaving(false);
-          alert('Keine gültigen Snake-Fragen erkannt. Nutze Format: Frage\n*Richtig\nFalsch\nFalsch ... (Leerzeile trennt nächste)');
+          alert('Keine gültigen Snake-Fragen erkannt. Format: Frage\nRichtige Antwort\nFalsch ... (Leerzeile trennt nächste).');
           return;
         }
   const targetScore = Number(c.targetScore) || 10;
@@ -296,9 +295,9 @@ function NeueLektionPageInner() {
       const q = lines[0];
       const answerLines = lines.slice(1);
       const answers = answerLines.map(l=> l.replace(/^\*/,'')).slice(0,4);
-      const correctIndex = answerLines.findIndex(l=> l.startsWith('*'));
-      if (!q || answers.length < 2 || correctIndex === -1) return { invalid: true, raw: block } as any;
-      return { question: q, answers, correct: correctIndex };
+  // erste Antwort gilt als korrekt
+  if (!q || answers.length < 2) return { invalid: true, raw: block } as any;
+  return { question: q, answers, correct: 0 };
     }).filter(Boolean) as Array<{ question?: string; answers?: string[]; correct?: number; invalid?: boolean; raw?: string }>;
     const valid = blocks.filter(b=>!b.invalid);
     const invalid = blocks.filter(b=>b.invalid);
@@ -306,8 +305,8 @@ function NeueLektionPageInner() {
       <div className="space-y-6">
         <div>
           <label className="block text-sm font-medium mb-1">Fragen & Antworten (Format)</label>
-          <p className="text-xs text-gray-500 mb-2">Blöcke durch Leerzeile trennen. Erste Zeile = Frage. Korrekte Antwort mit * markieren. Max 4 Antworten pro Frage.</p>
-          <textarea value={c.questions} onChange={e=>update({ questions: e.target.value })} className="w-full h-64 p-3 border rounded font-mono text-xs" placeholder={'Frage 1\n*Richtig\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\n*Richtig\nFalsch\nFalsch\nFalsch'} />
+          <p className="text-xs text-gray-500 mb-2">Blöcke durch Leerzeile trennen. Erste Zeile = Frage. Erste Antwort darunter = richtig. Max 4 Antworten pro Frage.</p>
+          <textarea value={c.questions} onChange={e=>update({ questions: e.target.value })} className="w-full h-64 p-3 border rounded font-mono text-xs" placeholder={'Frage 1\nRichtig\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\nRichtig\nFalsch\nFalsch\nFalsch'} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div>
@@ -354,14 +353,14 @@ function NeueLektionPageInner() {
                 {invalid.slice(0,10).map((b,i)=>(<li key={i} className="text-[11px] text-red-700 break-words">{b.raw}</li>))}
               </ul>
               {invalid.length>10 && <div className="text-[10px] text-red-500 mt-1">… weitere {invalid.length-10} ausgeblendet</div>}
-              <p className="text-[10px] text-red-500 mt-1">Format: Frage + mind. 2 Antworten, eine mit * als korrekt. Max 4 Antworten.</p>
+              <p className="text-[10px] text-red-500 mt-1">Format: Frage + mind. 2 Antworten. Erste Antwort = korrekt. Max 4 Antworten.</p>
             </div>
           )}
         </div>
         <div className="text-xs text-gray-500 bg-gray-50 border rounded p-3 leading-relaxed">
           Beispiel:<br/>
           Frage 1<br/>
-          *Richtige Antwort<br/>
+          Richtige Antwort<br/>
           Falsch A<br/>
           Falsch B<br/>
           Falsch C

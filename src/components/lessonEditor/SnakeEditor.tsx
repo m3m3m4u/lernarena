@@ -22,13 +22,14 @@ export default function SnakeEditor({ lesson, title, setTitle, category, setCate
   return (
     <main className="max-w-6xl mx-auto mt-10 p-6">
       <BackLink lesson={lesson} returnToExercises={returnToExercises} />
-      <h1 className="text-2xl font-bold mb-6">🐍 Snake-Lektion bearbeiten</h1>
+  <h1 className="text-2xl font-bold">Minigame bearbeiten</h1>
+  <p className="text-sm text-gray-600 mb-6">Kursteilnehmer entscheiden, welche Art von Minigame sie machen.</p>
       <TitleCategoryBar title={title} setTitle={setTitle} category={category} setCategory={setCategory} />
       <div className="bg-white border rounded p-6 space-y-6">
         <div>
           <label className="block text-sm font-medium mb-1">Fragen & Antworten</label>
-          <p className="text-xs text-gray-500 mb-2">Blöcke durch Leerzeile trennen. Erste Zeile = Frage. Korrekte Antwort mit * markieren. Max 4 Antworten.</p>
-          <textarea value={questionsText} onChange={e=>setQuestionsText(e.target.value)} className="w-full h-72 border rounded p-3 font-mono text-xs" placeholder={'Frage 1\n*Richtig\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\n*Richtig\nFalsch\nFalsch\nFalsch'} />
+          <p className="text-xs text-gray-500 mb-2">Blöcke durch Leerzeile trennen. Erste Zeile = Frage. Danach Antworten (erste Antwort = richtig). Max 4 Antworten.</p>
+          <textarea value={questionsText} onChange={e=>setQuestionsText(e.target.value)} className="w-full h-72 border rounded p-3 font-mono text-xs" placeholder={'Frage 1\nRichtig\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\nRichtig\nFalsch\nFalsch\nFalsch'} />
           <div className="flex flex-wrap gap-3 mt-3 items-center">
             <span className={`text-xs ${parsedQuestions.length? 'text-green-600':'text-red-600'}`}>Erkannt: {parsedQuestions.length} Fragen</span>
             <button onClick={handleSave} disabled={saving || !canSave} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400">{saving ? '💾 Speichert...' : '💾 Speichern'}</button>

@@ -185,12 +185,11 @@ export default function EditLessonPage() {
         if (!correct) continue;
         qs.push({ question: qText, mediaLink: media || undefined, correctAnswer: correct, wrongAnswers: wrong, allAnswers: [correct, ...wrong].sort(() => Math.random()-0.5) });
       } else if (lesson?.type === 'snake') {
-        const marked = answersRaw.map(l => ({ text: l.replace(/^\*/, '').trim(), isCorrect: /^\*/.test(l) })).filter(a => a.text);
-        const correctIndex = marked.findIndex(a => a.isCorrect);
-        if (correctIndex === -1) continue;
-        const answers = marked.slice(0,4).map(a=>a.text);
-        if (answers.length < 2) continue;
-        qs.push({ question: qText, mediaLink: undefined, correctAnswer: answers[correctIndex], wrongAnswers: answers.filter((_,i)=>i!==correctIndex), allAnswers: answers });
+        const cleaned = answersRaw.map(l=>l.replace(/^\*/, '').trim()).filter(a=>a);
+        if (cleaned.length < 2) continue;
+        const answers = cleaned.slice(0,4);
+        const correctAnswer = answers[0];
+        qs.push({ question: qText, mediaLink: undefined, correctAnswer, wrongAnswers: answers.slice(1), allAnswers: answers });
       }
     }
     setParsedQuestions(qs);

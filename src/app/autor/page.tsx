@@ -4,7 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 
 interface CourseDB { _id: string; title: string; description?: string; category?: string; isPublished?: boolean; }
 interface CourseUI { id: string; title: string; description?: string; category?: string; status: string; lessons: number; }
-interface LessonLite { _id: string; title: string; type: string; isExercise?: boolean; category?: string; courseId?: string; }
+interface LessonLite { _id: string; title: string; type: string; isExercise?: boolean; category?: string; courseId?: string; createdAt?: string; }
 
 export default function AutorPage() {
   const searchParams = useSearchParams();
@@ -173,14 +173,37 @@ function ExercisesTab() {
     const [editRaw, setEditRaw] = useState('');
     const [editMarkdown, setEditMarkdown] = useState('');
     const [saving, setSaving] = useState(false);
+  const [courseTitles, setCourseTitles] = useState<Record<string,string>>({});
+  const [onlyMarked, setOnlyMarked] = useState(false);
 
-    async function load() {
+  async function load() {
       setLoading(true);
       try {
         const res = await fetch('/api/lessons');
         const data = await res.json();
-  const arr = Array.isArray(data.lessons) ? data.lessons : [];
-        setLessons(arr as LessonLite[]);
+    const arr = Array.isArray(data.lessons) ? data.lessons : [];
+    // Sortierung: neueste zuerst (Fallback createdAt, sonst _id Timestamp Schätzung nicht implementiert)
+    arr.sort((a: any,b: any)=> new Date(b.createdAt||0).getTime() - new Date(a.createdAt||0).getTime());
+    setLessons(arr as LessonLite[]);
+        // Kurs-Titel nachladen (nur für Lektionen mit Kursbindung != exercise-pool)
+  const uniqueCourseIds: string[] = Array.from(new Set((arr as any[]).map(l=> String(l.courseId||'')).filter(id=> id && id !== 'exercise-pool')));
+        if (uniqueCourseIds.length){
+          // Parallel holen
+          Promise.all(uniqueCourseIds.map(async id => {
+            if (courseTitles[id]) return { id, title: courseTitles[id] }; // schon vorhanden
+            try {
+              const r = await fetch(`/api/kurs/${id}`);
+              if(!r.ok) return null;
+              const d = await r.json();
+              const t = d?.course?.title || id;
+              return { id, title: t as string };
+            } catch { return null; }
+          })).then(results => {
+            const patch: Record<string,string> = {};
+            results.filter(Boolean).forEach((r:any)=>{ patch[r.id]=r.title; });
+            if (Object.keys(patch).length) setCourseTitles(prev=>({...prev,...patch}));
+          });
+        }
       } catch { /* ignore */ }
       setLoading(false);
     }
@@ -211,10 +234,15 @@ function ExercisesTab() {
           if (l.type==='markdown') { setEditMarkdown(l.content?.markdown||''); setEditRaw(''); }
           else if (Array.isArray(l.questions) && l.questions.length) {
             const raw = l.questions.map((q:any)=>{
-              const correctMulti = q.correctAnswers || (q.correctAnswer?[q.correctAnswer]:[]);
-              const answers = q.answers || q.allAnswers || [];
-              return [q.question, ...answers.map((a:string)=>correctMulti.includes(a)?`*${a}`:a)].join('\n');
-            }).join('\n\n');
+                const answers = q.answers || q.allAnswers || [];
+                // erste Antwort soll korrekt sein -> falls nicht, sortieren
+                let ordered = answers.slice();
+                const firstCorrect = q.correctAnswer || (Array.isArray(q.correctAnswers)? q.correctAnswers[0]: undefined);
+                if(firstCorrect && ordered[0] !== firstCorrect){
+                  ordered = [firstCorrect, ...ordered.filter((a:string)=>a!==firstCorrect)];
+                }
+                return [q.question, ...ordered].join('\n');
+              }).join('\n\n');
             setEditRaw(raw); setEditMarkdown('');
           } else { setEditRaw(''); setEditMarkdown(JSON.stringify(l.content||{},null,2)); }
         } else { alert('Fehler beim Laden'); setEditingId(null); }
@@ -225,9 +253,10 @@ function ExercisesTab() {
       return raw.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean).map(block=>{
         const lines = block.split(/\n/).map(l=>l.trim()).filter(Boolean);
         const q = lines[0]||''; const answers = lines.slice(1).map(a=>a.replace(/^\*/,'').trim());
-        const correct = lines.slice(1).filter(a=>a.startsWith('*')).map(a=>a.replace(/^\*/,'').trim());
-        return { question:q, answers, correct, correctAnswer: correct.length===1?correct[0]:undefined };
-      }).filter(x=>x.question && x.answers.length>0);
+        if(!answers.length) return null;
+        const correctAnswer = answers[0];
+        return { question:q, answers, correct:[correctAnswer], correctAnswer };
+      }).filter((x:any)=>x && x.question && x.answers.length>0) as any[];
     }
 
     async function save(){
@@ -302,8 +331,18 @@ function ExercisesTab() {
     const filtered = lessons.filter(l=>{
       if (filter && !l.title.toLowerCase().includes(filter.toLowerCase())) return false;
       if (categoryFilter && l.category !== categoryFilter) return false;
+      if (onlyMarked && !l.isExercise) return false;
       return true;
     });
+
+  // Pagination
+  const pageSize = 10;
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  if (page > totalPages && totalPages>0) { setPage(totalPages); }
+  useEffect(()=>{ setPage(1); }, [filter, categoryFilter, onlyMarked]);
+  const startIndex = (page-1)*pageSize;
+  const paginated = filtered.slice(startIndex, startIndex + pageSize);
 
     const templates = [
       { type:'single-choice', icon:'📝', name:'Single Choice', desc:'Eine richtige Antwort' },
@@ -314,7 +353,7 @@ function ExercisesTab() {
       { type:'lueckentext', icon:'🧩', name:'Lückentext', desc:'*Antwort* markieren' },
       { type:'ordering', icon:'🔢', name:'Reihenfolge', desc:'Sortieren' },
       { type:'text-answer', icon:'✍️', name:'Text-Antwort', desc:'Freitext prüfen' },
-  { type:'snake', icon:'🐍', name:'Snake', desc:'Spiel mit Fragen' },
+  { type:'snake', icon:'🎮', name:'Minigame', desc:'Kursteilnehmer wählen den Spieltyp.' },
   { type:'video', icon:'🎬', name:'Video', desc:'YouTube (Embed) – abgeschlossen nach komplettem Ansehen' }
     ];
 
@@ -351,6 +390,10 @@ function ExercisesTab() {
               .sort()
               .map(cat=> <option key={cat as string} value={cat as string}>{cat}</option>)}
           </select>
+          <label className="flex items-center gap-1 text-xs border rounded px-2 py-1 cursor-pointer select-none bg-white">
+            <input type="checkbox" className="accent-blue-600" checked={onlyMarked} onChange={e=>setOnlyMarked(e.target.checked)} />
+            Nur markierte
+          </label>
           <button onClick={load} className="text-sm px-3 py-1 border rounded hover:bg-gray-50">🔄 Aktualisieren</button>
           {categoryFilter && <button type="button" onClick={()=>setCategoryFilter('')} className="text-xs text-blue-600 underline">Filter zurücksetzen</button>}
         </div>
@@ -360,11 +403,17 @@ function ExercisesTab() {
         {loading && <div className="text-sm text-gray-500">Lade Lektionen…</div>}
         {!loading && filtered.length===0 && <div className="text-sm text-gray-500">Keine Lektionen gefunden.</div>}
         <div className="border rounded divide-y">
-          {filtered.map(lesson=> (
+          {paginated.map(lesson=> (
             <div key={lesson._id} className="p-3 flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{lesson.title}</div>
-                <div className="text-xs text-gray-500 flex gap-2 flex-wrap"><span>Typ: {lesson.type}</span>{lesson.category && <span className="text-blue-600">Fach: {lesson.category}</span>}</div>
+                <div className="text-xs text-gray-500 flex gap-2 flex-wrap">
+                  <span>Typ: {lesson.type}</span>
+                  {lesson.category && <span className="text-blue-600">Fach: {lesson.category}</span>}
+                  {lesson.courseId && lesson.courseId !== 'exercise-pool' && (
+                    <span className="text-purple-600">Kurs: {courseTitles[lesson.courseId] || '…'}</span>
+                  )}
+                </div>
               </div>
               {editingId===lesson._id ? (
                 <div className="flex-1 space-y-2">
@@ -381,7 +430,52 @@ function ExercisesTab() {
                 </div>
               ) : (
                 <div className="flex gap-2 flex-wrap items-center">
-                  <a href={`/autor/lektion/${lesson._id}`} className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700" title="Vorschau & Bearbeiten in neuem Editor">👁️ Vorschau</a>
+                  {/* Fragen-Zähler (robust je nach Typ) */}
+                  {(() => {
+                    const l: any = lesson;
+                    // Für Video & Markdown keine Fragenzahl anzeigen
+                    if (l.type === 'video' || l.type === 'markdown') return null;
+                    let qCount = 0;
+                    switch(l.type){
+                      case 'single-choice':
+                      case 'multiple-choice':
+                      case 'matching':
+                        if (Array.isArray(l.questions)) qCount = l.questions.length; break;
+                      case 'snake': {
+                        // Neuer Modus: content.blocks; Alt: questions
+                        if (Array.isArray(l?.content?.blocks)) qCount = l.content.blocks.length;
+                        else if (Array.isArray(l.questions)) qCount = l.questions.length;
+                        break;
+                      }
+                      case 'memory': {
+                        // memory: Anzahl Paare in content.pairs (Array von Paaren) oder Summe über Blocks
+                        const pairs = Array.isArray(l?.content?.pairs)? l.content.pairs : [];
+                        qCount = pairs.length ? pairs.length : 0;
+                        break;
+                      }
+                      case 'lueckentext': {
+                        // lueckentext: Anzahl Lücken falls vorhanden
+                        const gaps = Array.isArray(l?.content?.gaps) ? l.content.gaps : (Array.isArray(l?.content?.items)? l.content.items: []);
+                        qCount = gaps.length || 0;
+                        break;
+                      }
+                      case 'ordering': {
+                        const items = Array.isArray(l?.content?.items)? l.content.items: [];
+                        qCount = items.length ? 1 : 0; // eine Aufgabe
+                        break;
+                      }
+                      case 'text-answer': {
+                        // text-answer: content.blocks oder 1 Frage
+                        if (Array.isArray(l?.content?.blocks)) qCount = l.content.blocks.length; else qCount = 1;
+                        break;
+                      }
+                      default: {
+                        if (Array.isArray(l.questions)) qCount = l.questions.length;
+                        else if (Array.isArray(l?.content?.blocks)) qCount = l.content.blocks.length;
+                      }
+                    }
+                    return <span className="text-xs text-gray-500 px-2 py-1 border rounded bg-gray-50">Fragen: {qCount}</span>;
+                  })()}
                   <button
                     onClick={async ()=>{
                       try {
@@ -441,6 +535,21 @@ function ExercisesTab() {
             </div>
           ))}
         </div>
+        {/* Pagination Controls */}
+        {filtered.length > pageSize && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 text-sm">
+            <div className="text-xs text-gray-500">Seite {page} / {totalPages} • {filtered.length} Übungen gesamt</div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <button disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-2 py-1 border rounded disabled:opacity-40">← Zurück</button>
+              {Array.from({length: totalPages}).slice(0,8).map((_,i)=>{
+                const p = i+1;
+                return <button key={p} onClick={()=>setPage(p)} className={`px-2 py-1 border rounded ${p===page? 'bg-blue-600 text-white border-blue-600':'hover:bg-gray-50'}`}>{p}</button>;
+              })}
+              {totalPages>8 && <span className="text-xs text-gray-500">…</span>}
+              <button disabled={page===totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="px-2 py-1 border rounded disabled:opacity-40">Weiter →</button>
+            </div>
+          </div>
+        )}
         <p className="text-xs text-gray-500">Nur Markierung & Bearbeitung. Neue Übungen anderswo erstellen.</p>
       </div>
     );
