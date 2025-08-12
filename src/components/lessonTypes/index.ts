@@ -3,6 +3,7 @@ export { default as MarkdownLesson } from './MarkdownLesson';
 export { default as YouTubeLesson } from './YouTubeLesson';
 export { default as MemoryGame } from './MemoryGame';
 export { default as SnakeGame } from './SnakeGame';
+export { default as PlaneGame } from './plane/PlaneGame';
 export { default as MatchingUI } from './MatchingUI';
 export { default as OrderingPlayer } from './OrderingPlayer';
 export { default as LueckentextPlayer } from './LueckentextPlayer';
