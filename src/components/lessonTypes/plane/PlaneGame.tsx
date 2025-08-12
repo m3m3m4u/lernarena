@@ -454,37 +454,37 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     <div ref={wrapperRef} className={isFullscreen ? 'w-screen h-screen bg-black relative overflow-hidden' : 'w-full py-4'}>
       <div className={isFullscreen ? 'relative w-full h-full' : 'mx-auto w-full'} style={ isFullscreen ? {width:'100%', height:'100%'} : {width:'100%'} }>
         {isFullscreen && (
-          <div className="absolute top-0 left-0 w-full h-[120px] bg-black/90 backdrop-blur-sm flex items-center gap-4 px-4 z-20">
-            <div className="flex items-center gap-2">
+          <div className="absolute top-0 left-0 w-full h-[160px] bg-black/90 backdrop-blur-sm flex items-center gap-6 px-6 z-20">
+            <div className="flex items-center gap-4">
               {running && !gameOver && !finished && (
                 <button
                   onClick={()=> setPaused(p=>!p)}
-                  className="h-12 w-12 rounded-full bg-white/70 hover:bg-white text-gray-900 text-xs font-semibold flex items-center justify-center shadow border border-white/50"
+                  className="h-24 w-24 rounded-full bg-white/75 hover:bg-white text-gray-900 text-2xl font-bold flex items-center justify-center shadow-lg border border-white/60 tracking-wide"
                   title={paused? 'Weiter':'Pause'}
                 >{paused? 'Weiter':'Pause'}</button>
               )}
               {(running || (!running && !finished && !gameOver)) && (
                 <button
                   onClick={toggleFullscreen}
-                  className="h-12 w-12 rounded-full bg-white/70 hover:bg-white text-gray-900 text-[11px] font-semibold flex items-center justify-center shadow border border-white/50"
+                  className="h-24 w-24 rounded-full bg-white/75 hover:bg-white text-gray-900 text-2xl font-bold flex items-center justify-center shadow-lg border border-white/60 tracking-wide"
                   title={isFullscreen? 'Vollbild verlassen':'Vollbild'}
                 >Zurück</button>
               )}
             </div>
             <div className="flex-1 flex justify-center">
               {questionText && running && !gameOver && !finished && (
-                <div className="pointer-events-none bg-white/10 text-white text-center text-2xl font-semibold px-6 py-3 rounded-lg max-w-[60%] leading-snug line-clamp-3">
+                <div className="pointer-events-none bg-white/10 text-white text-center text-3xl font-semibold px-10 py-6 rounded-xl max-w-[60%] leading-snug line-clamp-3">
                   {questionText}
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-4 text-white font-semibold text-sm">
-              <span className="tracking-wide">{'❤'.repeat(Math.max(0, lives))}</span>
-              <span>Punkte: {score}/{targetScore}</span>
+            <div className="flex flex-col items-end justify-center gap-4 pr-2">
+              <span className="text-white font-semibold text-[2.6rem] leading-none tracking-wider drop-shadow-[0_0_6px_rgba(0,0,0,0.6)]">{'❤'.repeat(Math.max(0, lives))}</span>
+              <span className="text-white font-bold text-[2.7rem] leading-none drop-shadow-[0_0_8px_rgba(0,0,0,0.65)]">Punkte: {score}/{targetScore}</span>
             </div>
           </div>
         )}
-        <div className="relative w-full" style={ isFullscreen ? {width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', paddingTop: '120px'} : {width:'100%'} }>
+  <div className="relative w-full" style={ isFullscreen ? {width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', paddingTop: '160px'} : {width:'100%'} }>
           <canvas
           ref={canvasRef}
           width={LOGICAL_WIDTH}
