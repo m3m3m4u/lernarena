@@ -39,12 +39,30 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   const cloudsRef = useRef<Cloud[]>([]); // für Render ohne Neumount des Game-Loops
   useEffect(()=>{ cloudsRef.current = clouds; }, [clouds]);
   const collisionCooldownRef = useRef(0); // Sekunden bis erneut gezählt wird
+  const lastLifeCloudIdRef = useRef<number | null>(null); // verhindert Mehrfachabzug durch dieselbe Wolke
+  // Globaler Flash für falsche Treffer
+  const wrongFlashRef = useRef(0); // 0..1 alpha
   const [questionText, setQuestionText] = useState('');
   const [activeQuestionId, setActiveQuestionId] = useState(0);
   const questionIdCounterRef = useRef(0);
   const [marking, setMarking] = useState(false);
   const [finished, setFinished] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Zahl -> deutsches Wort (Basis für kleine Zahlen)
+  const numWord = (n:number):string => {
+    const basics: Record<number,string> = {0:'null',1:'eins',2:'zwei',3:'drei',4:'vier',5:'fünf',6:'sechs',7:'sieben',8:'acht',9:'neun',10:'zehn',11:'elf',12:'zwölf',13:'dreizehn',14:'vierzehn',15:'fünfzehn',16:'sechzehn',17:'siebzehn',18:'achtzehn',19:'neunzehn'};
+    const tens: Record<number,string> = {20:'zwanzig',30:'dreißig',40:'vierzig',50:'fünfzig',60:'sechzig',70:'siebzig',80:'achtzig',90:'neunzig'};
+    if(basics[n]!==undefined) return basics[n];
+    if(tens[n]) return tens[n];
+    if(n<100){
+      const t = Math.floor(n/10)*10; const r = n%10;
+      // z.B. 21 => einundzwanzig
+      const rWord = r===1? 'ein': basics[r];
+      return rWord + 'und' + tens[t];
+    }
+    return n.toString();
+  };
 
   // Target Score aus lesson.content.targetScore analog Snake (Default 15)
   const targetScore = Number((lesson as any)?.content?.targetScore) || 15;
@@ -61,6 +79,9 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
 
   const planeImgRef = useRef<HTMLImageElement | null>(null);
   const planeReadyRef = useRef(false);
+  // Pixelform Maske (Alpha) für präzisere Kollision
+  const planeMaskRef = useRef<{data:Uint8ClampedArray; w:number; h:number} | null>(null);
+  const planeMaskReadyRef = useRef(false);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const bgReadyRef = useRef(false);
 
@@ -124,9 +145,47 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'high';
   },[]);
 
+  // Dynamische CSS-Größe (Breite füllt Container, Höhe entsprechend Seitenverhältnis)
+  useEffect(()=>{
+    if(isFullscreen) return; // Fullscreen handled separately
+    const canvas = canvasRef.current; const wrapper = wrapperRef.current; if(!canvas || !wrapper) return;
+    const ro = new ResizeObserver(entries=>{
+      const w = entries[0].contentRect.width;
+      canvas.style.width = w + 'px';
+      canvas.style.height = (w * (LOGICAL_HEIGHT/LOGICAL_WIDTH)) + 'px';
+    });
+    ro.observe(wrapper);
+    return ()=> ro.disconnect();
+  },[isFullscreen]);
+
   // Assets laden
   useEffect(()=>{
-    const planeImg = new Image(); planeImg.onload=()=>{ planeReadyRef.current=true; const w=planeImg.naturalWidth||320; const h=planeImg.naturalHeight||160; const aspect=h/w; planeRef.current.w = PLANE_DISPLAY_WIDTH; planeRef.current.h = PLANE_DISPLAY_WIDTH * aspect; }; planeImg.src='/media/flugzeug.svg'; planeImgRef.current=planeImg;
+    const planeImg = new Image(); planeImg.onload=()=>{ 
+      planeReadyRef.current=true; 
+      const w=planeImg.naturalWidth||320; const h=planeImg.naturalHeight||160; const aspect=h/w; 
+      planeRef.current.w = PLANE_DISPLAY_WIDTH; planeRef.current.h = PLANE_DISPLAY_WIDTH * aspect; 
+      // Maske erstellen (Alpha > 32 zählt als solid)
+      try {
+        const mw = Math.round(planeRef.current.w);
+        const mh = Math.round(planeRef.current.h);
+        const off = document.createElement('canvas'); off.width = mw; off.height = mh; const octx = off.getContext('2d');
+        if(octx){
+          // Spiegeln falls PLANE_MIRRORED, damit Maske zu gezeichneter Ausrichtung passt
+          if(PLANE_MIRRORED){
+            octx.save();
+            octx.translate(mw,0); octx.scale(-1,1);
+            octx.drawImage(planeImg,0,0,mw,mh);
+            octx.restore();
+          } else {
+            octx.drawImage(planeImg,0,0,mw,mh);
+          }
+          const imgData = octx.getImageData(0,0,mw,mh);
+            planeMaskRef.current = { data: imgData.data, w: mw, h: mh };
+            planeMaskReadyRef.current = true;
+        }
+      } catch(err){ console.warn('Plane mask build failed', err); }
+    }; 
+    planeImg.src='/media/flugzeug.svg'; planeImgRef.current=planeImg;
     const bgImg = new Image(); bgImg.onload=()=>{ bgReadyRef.current=true; }; bgImg.src='/media/hintergrundbild.png'; bgImgRef.current=bgImg;
   },[]);
 
@@ -140,7 +199,40 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     const canvas = canvasRef.current; if(!canvas) return; const ctx = canvas.getContext('2d'); if(!ctx) return;
   // Frame Handle
   let frameHandle:number;
-    const collides = (a:{x:number;y:number;w:number;h:number}, b:{x:number;y:number;w:number;h:number})=> Math.abs(a.x-b.x) <= (a.w+b.w)*0.5 && Math.abs(a.y-b.y) <= (a.h+b.h)*0.5;
+    const aabb = (a:{x:number;y:number;w:number;h:number}, b:{x:number;y:number;w:number;h:number})=> Math.abs(a.x-b.x) <= (a.w+b.w)*0.5 && Math.abs(a.y-b.y) <= (a.h+b.h)*0.5;
+    function precisePlaneCloudCollision(cloud:Cloud){
+      const plane = planeRef.current;
+      // Grober Vorabtest
+      if(!aabb({x:plane.x,y:plane.y,w:plane.w,h:plane.h},{x:cloud.x,y:cloud.y,w:cloud.w,h:cloud.h})) return false;
+      if(!planeMaskReadyRef.current || !planeMaskRef.current) return true; // fallback: akzeptiere groben Treffer wenn Maske fehlt
+      const mask = planeMaskRef.current;
+      // Schnittrechteck in Weltkoordinaten
+      const left = plane.x - plane.w/2;
+      const top = plane.y - plane.h/2;
+      const cloudRx = cloud.w/2; const cloudRy = cloud.h/2;
+      // Wir laufen über Maske in Schrittweite 2 für Performance
+      const step = 2;
+      const data = mask.data;
+      for(let my=0; my<mask.h; my+=step){
+        const wy = top + my; // Welt Y
+        // Schnell außerhalb vertikal
+        if(Math.abs(wy - cloud.y) > cloudRy) continue;
+        for(let mx=0; mx<mask.w; mx+=step){
+          const wx = left + mx;
+          if(Math.abs(wx - cloud.x) > cloudRx) continue; // horizontal schneller Filter
+          const idx = (my*mask.w + mx)*4 + 3; // Alpha-Kanal
+          if(data[idx] > 32){
+            // Punkt innerhalb Ellipse?
+            const dx = (wx - cloud.x)/cloudRx;
+            const dy = (wy - cloud.y)/cloudRy;
+            if(dx*dx + dy*dy <= 1){
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
 
     const update = (dt:number)=>{
       if(paused || gameOver) { lastFrameDtRef.current = 0; return; }
@@ -159,13 +251,19 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
         for(const c of prev){
           const nc: Cloud = { ...c, prevX: c.x };
           nc.x -= nc.speed * dt;
-          if(collisionCooldownRef.current===0 && !collidedThisFrame && nc.active && !nc.hit && collides({x:plane.x,y:plane.y,w:plane.w,h:plane.h},{x:nc.x,y:nc.y,w:nc.w,h:nc.h})){
+          if(collisionCooldownRef.current===0 && !collidedThisFrame && nc.active && !nc.hit && precisePlaneCloudCollision(nc)){
             nc.hit = true; nc.active = false; nc.hitTime = 0; collidedThisFrame = true; // deaktivieren verhindert weitere Treffer
             if(nc.correct){
               correctHit = true; setScore(s=>s+1);
             } else {
-              // Abzug pro Wolke (nc sofort inactive, daher maximal einmal)
-              setLives(l=>{ const n=Math.max(0,l-1); if(n<=0) triggerGameOver(); return n; });
+              if(!nc.lifePenalized && nc.id !== lastLifeCloudIdRef.current){
+                nc.lifePenalized = true; lastLifeCloudIdRef.current = nc.id ?? null;
+                setLives(l=>{ const n=Math.max(0,l-1); if(n<=0) triggerGameOver(); return n; });
+              }
+              // Effektparameter
+              nc.speed = nc.speed * 0.55; // etwas langsamer, aber nicht komplett stoppen
+              (nc as any).wrongEffect = true;
+              wrongFlashRef.current = 1; // globaler Flash starten
             }
             collisionCooldownRef.current = 0.35; // etwas längerer Lockout
           }
@@ -190,8 +288,16 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
           arr = filtered;
           setTimeout(()=> spawnClouds(false),0); // neue Gruppe ersetzt alte
         }
-        arr.forEach(c=>{ if(c.hit){ c.hitTime=(c.hitTime||0)+dt; } });
-        const cleaned = arr.filter(c=> !( !c.active && c.x + c.w < -200));
+        arr.forEach(c=>{ if(c.hit){ c.hitTime=(c.hitTime||0)+dt; if(!c.correct){ // Fade Out nach 0.6s
+              if(c.hitTime>0.6){ const t = Math.min(1,(c.hitTime-0.6)/0.35); c.alpha = 1 - t; if(c.alpha<=0) c.active=false; }
+            }} });
+  // Global Flash alpha reduzieren
+  if(wrongFlashRef.current>0){ wrongFlashRef.current = Math.max(0, wrongFlashRef.current - dt*2.5); }
+        const cleaned = arr.filter(c=> {
+          // Entferne falsche getroffene Wolken nach Fade-Out
+          if(c.hit && !c.correct && c.hitTime && c.hitTime>0.75 && (c.alpha!==undefined && c.alpha<=0)) return false;
+          return !( !c.active && c.x + c.w < -200);
+        });
         cloudsRef.current = cleaned;
         return cleaned;
       });
@@ -207,6 +313,12 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
       // Immer aktuelle Ref nutzen
       cloudsRef.current.forEach(c=> drawCloud(ctx,c));
       drawPlane(ctx);
+      // Globaler roter Flash bei falscher Antwort (kurz)
+      if(wrongFlashRef.current>0){
+        const a = 0.35 * wrongFlashRef.current; // maximale Alpha 0.35
+        ctx.fillStyle = `rgba(255,0,0,${a})`;
+        ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT);
+      }
       if(paused && !gameOver){
         ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT);
         ctx.fillStyle='#fff'; ctx.font='48px system-ui'; ctx.textAlign='center'; ctx.fillText('PAUSE', LOGICAL_WIDTH/2, LOGICAL_HEIGHT/2);
@@ -215,7 +327,91 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     };
   const drawPlane = (ctx:CanvasRenderingContext2D)=>{ const plane=planeRef.current; ctx.save(); ctx.translate(plane.x, plane.y); ctx.rotate(plane.angle * Math.PI/180); if(planeReadyRef.current && planeImgRef.current){ ctx.imageSmoothingEnabled=true; (ctx as any).imageSmoothingQuality='high'; if(PLANE_MIRRORED) ctx.scale(-1,1); ctx.drawImage(planeImgRef.current, -plane.w/2, -plane.h/2, plane.w, plane.h); } else { ctx.fillStyle='#f33'; ctx.fillRect(-plane.w/2, -plane.h/2, plane.w, plane.h); } ctx.restore(); };
     const drawScrollingBackground = (ctx:CanvasRenderingContext2D)=>{ if(bgReadyRef.current && bgImgRef.current){ const iw=bgImgRef.current.width, ih=bgImgRef.current.height; const scale = LOGICAL_HEIGHT / ih; const tileW = iw*scale; const tileH=LOGICAL_HEIGHT; bgOffsetRef.current -= BG_SCROLL_SPEED * lastFrameDtRef.current; if(bgOffsetRef.current <= -tileW){ bgOffsetRef.current = bgOffsetRef.current % tileW; } let startX = bgOffsetRef.current; while(startX > 0) startX -= tileW; for(let x=startX; x<LOGICAL_WIDTH; x+=tileW){ ctx.drawImage(bgImgRef.current,x,0,tileW,tileH); } ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } else { const grad=ctx.createLinearGradient(0,0,0,LOGICAL_HEIGHT); grad.addColorStop(0,'#4c9be2'); grad.addColorStop(1,'#b5ddff'); ctx.fillStyle=grad; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } };
-    const drawCloud = (ctx:CanvasRenderingContext2D, c:Cloud)=>{ ctx.save(); ctx.translate(c.x, c.y); let scale=1; if(c.hit){ const t = Math.min(0.25, c.hitTime||0)/0.25; const bump = c.correct ? 0.3 : 0.25; scale = 1 + bump*(1-t); } ctx.scale(scale,scale); ctx.beginPath(); ctx.ellipse(0,0,c.w/2,c.h/2,0,0,Math.PI*2); const grad=ctx.createLinearGradient(0,-c.h/2,0,c.h/2); if(c.hit){ if(c.correct){ grad.addColorStop(0,'#d5ffe0'); grad.addColorStop(1,'#63f78e'); } else { grad.addColorStop(0,'#ffe3e3'); grad.addColorStop(1,'#ff9d9d'); } } else { grad.addColorStop(0,'#ffffff'); grad.addColorStop(1,'#e6f1ff'); } ctx.fillStyle=grad; ctx.shadowColor='rgba(0,0,0,0.18)'; ctx.shadowBlur=10; ctx.shadowOffsetY=4; ctx.fill(); ctx.shadowColor='transparent'; ctx.lineWidth = c.hit?4:2; ctx.strokeStyle = c.hit ? (c.correct? 'rgba(0,160,40,0.9)' : 'rgba(220,0,0,0.85)') : 'rgba(0,0,0,0.12)'; ctx.stroke(); ctx.fillStyle = c.hit && !c.correct ? '#400' : '#222'; const fs = c.fontSize || 26; ctx.font = `600 ${fs}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle'; if(c.lines && c.lines.length){ const totalH = c.lines.length * c.lineHeight; for(let i=0;i<c.lines.length;i++){ const line=c.lines[i]; const cy = (i+0.5)*c.lineHeight - totalH/2; ctx.fillText(line,0,cy); } } else { ctx.fillText(c.text,0,2); } ctx.restore(); };
+    const drawCloud = (ctx:CanvasRenderingContext2D, c:Cloud)=>{
+      ctx.save();
+      ctx.translate(c.x, c.y);
+      let scale = 1;
+      if(c.hit){
+        const t = Math.min(0.25, c.hitTime||0)/0.25; // 0..1
+        const bump = c.correct ? 0.3 : 0.25;
+        scale = 1 + bump * (1 - t);
+      }
+      ctx.scale(scale, scale);
+      // Form
+      ctx.beginPath();
+      ctx.ellipse(0,0,c.w/2,c.h/2,0,0,Math.PI*2);
+      // Füllverlauf
+      const grad = ctx.createLinearGradient(0,-c.h/2,0,c.h/2);
+      if(c.hit){
+        if(c.correct){
+          grad.addColorStop(0,'#d6ffe4');
+          grad.addColorStop(1,'#42d96d');
+        } else {
+          const pulse = 0.5 + 0.5 * Math.sin((c.hitTime||0)*10);
+          const c1 = 224 + Math.round(16*pulse); // 224..240
+          const c2 = 123 + Math.round(60*(1-pulse)); // 123..183
+          grad.addColorStop(0,`rgb(255,${Math.max(0,c1-60)},${Math.max(0,c1-60)})`);
+          grad.addColorStop(1,`rgb(255,${c2},${c2})`);
+        }
+      } else {
+        grad.addColorStop(0,'#ffffff');
+        grad.addColorStop(1,'#e6f1ff');
+      }
+      ctx.fillStyle = grad;
+      ctx.shadowColor='rgba(0,0,0,0.18)';
+      ctx.shadowBlur=10; ctx.shadowOffsetY=4;
+      ctx.globalAlpha = c.alpha!==undefined ? c.alpha : 1;
+      ctx.fill();
+      ctx.shadowColor='transparent';
+      // Randfarben
+      if(!c.hit){
+        ctx.lineWidth=2; ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.stroke();
+      } else if(c.correct){
+        ctx.lineWidth=5; ctx.strokeStyle='#0d9234'; ctx.stroke();
+      } else { // falsche Wolke – pulsierender Rand
+        const pulse = 0.5 + 0.5 * Math.sin((c.hitTime||0)*14);
+        ctx.lineWidth = 5 + 4*pulse;
+        ctx.strokeStyle = `rgba(255,0,0,${0.65 + 0.3*pulse})`;
+        ctx.stroke();
+        // Glow Ring
+        ctx.lineWidth = 2 + 2*pulse;
+        ctx.strokeStyle = `rgba(255,180,180,${0.35 + 0.25*pulse})`;
+        ctx.stroke();
+      }
+      // Textfarbe
+      ctx.fillStyle = c.hit && !c.correct ? '#400' : '#222';
+      const fs = c.fontSize || 26; ctx.font = `600 ${fs}px system-ui`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      if(c.lines && c.lines.length){
+        const totalH = c.lines.length * c.lineHeight;
+        for(let i=0;i<c.lines.length;i++){
+          const line = c.lines[i];
+            const cy = (i+0.5)*c.lineHeight - totalH/2;
+          ctx.fillText(line,0,cy);
+        }
+      } else {
+        ctx.fillText(c.text,0,2);
+      }
+      ctx.restore();
+      // Externer Ring (nicht mit Wolke mitskaliert) für falsche Treffer für stärkeren Fokus
+      if(c.hit && !c.correct){
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        const pulse = 0.5 + 0.5 * Math.sin((c.hitTime||0)*12);
+        const radius = Math.max(c.w,c.h)*0.65 + 12 * pulse;
+        ctx.lineWidth = 10 + 6*pulse;
+        ctx.strokeStyle = `rgba(255,50,50,${0.55 + 0.35*pulse})`;
+        ctx.beginPath();
+        ctx.ellipse(0,0,radius,radius*0.65,0,0,Math.PI*2);
+        ctx.stroke();
+        // zweiter Glow-Ring
+        ctx.lineWidth = 4 + 2*pulse;
+        ctx.strokeStyle = `rgba(255,180,180,${0.35 + 0.25*pulse})`;
+        ctx.beginPath();
+        ctx.ellipse(0,0,radius*1.15,radius*0.65*1.15,0,0,Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    };
 
   frameHandle = requestAnimationFrame(loopFrame);
   return ()=> cancelAnimationFrame(frameHandle);
@@ -227,7 +423,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   // Skalierung aus Lesson-Content (optional)
   const contentScaleRaw = Number((lesson as any)?.content?.planeScale);
   const DISPLAY_SCALE = (!isNaN(contentScaleRaw) && contentScaleRaw>0.15 && contentScaleRaw<=1) ? contentScaleRaw : DEFAULT_DISPLAY_SCALE;
-  const displayWidth = Math.round(LOGICAL_WIDTH * DISPLAY_SCALE);
+  const displayWidth = Math.round(LOGICAL_WIDTH * DISPLAY_SCALE); // bleibt für evtl. zukünftige Skalen-Logik vorhanden
 
   // Fullscreen dynamische Anpassung (Canvas soll Viewport maximal ausfüllen bei 16:9)
   useEffect(()=>{
@@ -255,27 +451,60 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     }
   },[displayWidth, isFullscreen]);
   return (
-    <div ref={wrapperRef} className={isFullscreen ? 'w-screen h-screen flex items-center justify-center bg-black' : 'w-full py-4'}>
-      <div className={isFullscreen ? 'relative' : 'mx-auto flex justify-center'} style={ isFullscreen ? {width:'100%', height:'100%'} : {width:'100%', maxWidth:displayWidth} }>
-        <div className="relative" style={ isFullscreen ? {width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center'} : {width:displayWidth} }>
+    <div ref={wrapperRef} className={isFullscreen ? 'w-screen h-screen bg-black relative overflow-hidden' : 'w-full py-4'}>
+      <div className={isFullscreen ? 'relative w-full h-full' : 'mx-auto w-full'} style={ isFullscreen ? {width:'100%', height:'100%'} : {width:'100%'} }>
+        {isFullscreen && (
+          <div className="absolute top-0 left-0 w-full h-[120px] bg-black/90 backdrop-blur-sm flex items-center gap-4 px-4 z-20">
+            <div className="flex items-center gap-2">
+              {running && !gameOver && !finished && (
+                <button
+                  onClick={()=> setPaused(p=>!p)}
+                  className="h-12 w-12 rounded-full bg-white/70 hover:bg-white text-gray-900 text-xs font-semibold flex items-center justify-center shadow border border-white/50"
+                  title={paused? 'Weiter':'Pause'}
+                >{paused? 'Weiter':'Pause'}</button>
+              )}
+              {(running || (!running && !finished && !gameOver)) && (
+                <button
+                  onClick={toggleFullscreen}
+                  className="h-12 w-12 rounded-full bg-white/70 hover:bg-white text-gray-900 text-[11px] font-semibold flex items-center justify-center shadow border border-white/50"
+                  title={isFullscreen? 'Vollbild verlassen':'Vollbild'}
+                >Zurück</button>
+              )}
+            </div>
+            <div className="flex-1 flex justify-center">
+              {questionText && running && !gameOver && !finished && (
+                <div className="pointer-events-none bg-white/10 text-white text-center text-2xl font-semibold px-6 py-3 rounded-lg max-w-[60%] leading-snug line-clamp-3">
+                  {questionText}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4 text-white font-semibold text-sm">
+              <span className="tracking-wide">{'❤'.repeat(Math.max(0, lives))}</span>
+              <span>Punkte: {score}/{targetScore}</span>
+            </div>
+          </div>
+        )}
+        <div className="relative w-full" style={ isFullscreen ? {width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', paddingTop: '120px'} : {width:'100%'} }>
           <canvas
           ref={canvasRef}
           width={LOGICAL_WIDTH}
           height={LOGICAL_HEIGHT}
-          className={isFullscreen ? 'block h-auto rounded bg-black' : 'block mx-auto h-auto rounded shadow-lg bg-gradient-to-b from-sky-500 to-sky-300'}
-          style={ isFullscreen ? { aspectRatio: `${LOGICAL_WIDTH}/${LOGICAL_HEIGHT}` } : { width: displayWidth, aspectRatio: `${LOGICAL_WIDTH}/${LOGICAL_HEIGHT}` } }
+          className={isFullscreen ? 'block h-auto rounded bg-black' : 'block h-auto w-full rounded shadow-lg bg-gradient-to-b from-sky-500 to-sky-300'}
+          style={ isFullscreen ? { aspectRatio: `${LOGICAL_WIDTH}/${LOGICAL_HEIGHT}` } : { width: '100%', aspectRatio: `${LOGICAL_WIDTH}/${LOGICAL_HEIGHT}`, maxWidth:'100%' } }
         />
         {/* Frage */}
-        {questionText && running && !gameOver && !finished && (
+  {!isFullscreen && questionText && running && !gameOver && !finished && (
           <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 bg-black/50 text-white text-center text-xl sm:text-2xl font-semibold px-4 py-2 rounded-lg max-w-[90%] whitespace-pre-wrap">
             {questionText}
           </div>
         )}
         {/* Scoreboard */}
-  <div className="absolute top-1 right-1 flex gap-3 text-white font-semibold drop-shadow-md text-[10px] sm:text-xs">
-          <span className="tracking-wide">{'❤'.repeat(Math.max(0, lives))}</span>
-          <span>Punkte: {score}</span>
-        </div>
+        {!isFullscreen && (
+          <div className="absolute top-1 right-1 flex items-center gap-3 text-white font-semibold drop-shadow-md text-[10px] sm:text-xs">
+            <span className="tracking-wide">{'❤'.repeat(Math.max(0, lives))}</span>
+            <span>Punkte: {score}/{targetScore}</span>
+          </div>)
+        }
         {/* Start Overlay */}
         {!running && !finished && !gameOver && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 text-center text-white p-4">
@@ -315,19 +544,19 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
         {/* Steuerungstipp */}
   <div className="absolute bottom-1 left-2 text-[9px] sm:text-[10px] text-white/80 drop-shadow">↑ / ↓ steuern • P / Space Pause</div>
         {/* Pause Button klein oben links */}
-        {running && !gameOver && !finished && (
-          <div className="absolute top-1 left-1 flex gap-1">
-            <button onClick={()=> setPaused(p=>!p)} className="bg-white/70 hover:bg-white text-gray-800 text-[10px] font-semibold px-1.5 py-0.5 rounded shadow">
-              {paused? '▶':'II'}
+        {!isFullscreen && running && !gameOver && !finished && (
+          <div className="absolute top-2 left-2 flex gap-2">
+            <button onClick={()=> setPaused(p=>!p)} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-gray-900 text-[9px] sm:text-[10px] font-semibold flex items-center justify-center shadow border border-white/50 backdrop-blur" title={paused? 'Weiter':'Pause'}>
+              {paused? 'Weiter':'Pause'}
             </button>
-            <button onClick={toggleFullscreen} className="bg-white/70 hover:bg-white text-gray-800 text-[10px] font-semibold px-1.5 py-0.5 rounded shadow" title={isFullscreen? 'Fullscreen verlassen':'Fullscreen'}>
-              {isFullscreen? '⤢':'⛶'}
+            <button onClick={toggleFullscreen} className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-gray-900 text-[9px] sm:text-[10px] font-semibold flex items-center justify-center shadow border border-white/50 backdrop-blur" title={isFullscreen? 'Vollbild verlassen':'Vollbild'}>
+              {isFullscreen? 'Zurück':'Vollbild'}
             </button>
           </div>
         )}
-        {!running && !finished && !gameOver && (
-          <button onClick={toggleFullscreen} className="absolute top-1 left-1 bg-white/70 hover:bg-white text-gray-800 text-[10px] font-semibold px-1.5 py-0.5 rounded shadow" title={isFullscreen? 'Fullscreen verlassen':'Fullscreen'}>
-            {isFullscreen? '⤢':'⛶'}
+        {!isFullscreen && !running && !finished && !gameOver && (
+          <button onClick={toggleFullscreen} className="absolute top-2 left-2 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-gray-900 text-[9px] sm:text-[10px] font-semibold flex items-center justify-center shadow border border-white/50 backdrop-blur" title={isFullscreen? 'Vollbild verlassen':'Vollbild'}>
+            {isFullscreen? 'Zurück':'Vollbild'}
           </button>
         )}
         </div>
