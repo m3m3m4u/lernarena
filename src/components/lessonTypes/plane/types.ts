@@ -6,6 +6,7 @@ export const TOP_SAFE_ZONE = 45;
 export interface QuestionBlock { question: string; answers: string[]; correct: number }
 
 export interface Cloud {
+  id?: number; // eindeutige ID für Kollision-Guards
   text: string;
   correct: boolean;
   lane: number;
