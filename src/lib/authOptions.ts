@@ -20,11 +20,12 @@ export const authOptions: NextAuthOptions = {
         if (!credentials?.password) throw new Error("Passwort fehlt");
         const isValid = await compare(credentials.password, user.password);
         if (!isValid) { console.warn('[auth] invalid password for', credentials?.username); throw new Error("Falsches Passwort"); }
+        const id = (user as any)._id ? String((user as any)._id) : (user.id? String(user.id): undefined);
         return {
-          id: user._id.toString(),
-          name: user.name,
-            username: user.username,
-          role: user.role || 'learner'
+          id,
+          name: (user as any).name as string | undefined,
+          username: (user as any).username as string | undefined,
+          role: (user as any).role ? String((user as any).role) : 'learner'
         } as any; // NextAuth v4 erwartet ein User-ähnliches Objekt
       },
     }),

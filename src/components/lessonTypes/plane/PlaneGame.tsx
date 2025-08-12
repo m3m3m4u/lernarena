@@ -162,15 +162,16 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   useEffect(()=>{
     const planeImg = new Image(); planeImg.onload=()=>{ 
       planeReadyRef.current=true; 
-      const w=planeImg.naturalWidth||320; const h=planeImg.naturalHeight||160; const aspect=h/w; 
-      planeRef.current.w = PLANE_DISPLAY_WIDTH; planeRef.current.h = PLANE_DISPLAY_WIDTH * aspect; 
-      // Maske erstellen (Alpha > 32 zählt als solid)
+      // Verwende natural* oder Fallbacks
+      const natW = planeImg.naturalWidth || (planeImg as any).width || 320; 
+      const natH = planeImg.naturalHeight || (planeImg as any).height || 160; 
+      const aspect = natH / natW || 0.5; 
+      planeRef.current.w = PLANE_DISPLAY_WIDTH; planeRef.current.h = Math.max(20, PLANE_DISPLAY_WIDTH * aspect); 
       try {
         const mw = Math.round(planeRef.current.w);
         const mh = Math.round(planeRef.current.h);
         const off = document.createElement('canvas'); off.width = mw; off.height = mh; const octx = off.getContext('2d');
         if(octx){
-          // Spiegeln falls PLANE_MIRRORED, damit Maske zu gezeichneter Ausrichtung passt
           if(PLANE_MIRRORED){
             octx.save();
             octx.translate(mw,0); octx.scale(-1,1);
@@ -180,13 +181,14 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
             octx.drawImage(planeImg,0,0,mw,mh);
           }
           const imgData = octx.getImageData(0,0,mw,mh);
-            planeMaskRef.current = { data: imgData.data, w: mw, h: mh };
-            planeMaskReadyRef.current = true;
+          planeMaskRef.current = { data: imgData.data, w: mw, h: mh };
+          planeMaskReadyRef.current = true;
         }
       } catch(err){ console.warn('Plane mask build failed', err); }
     }; 
+    planeImg.onerror = ()=> console.warn('PlaneGame: /media/flugzeug.svg konnte nicht geladen werden');
     planeImg.src='/media/flugzeug.svg'; planeImgRef.current=planeImg;
-    const bgImg = new Image(); bgImg.onload=()=>{ bgReadyRef.current=true; }; bgImg.src='/media/hintergrundbild.png'; bgImgRef.current=bgImg;
+    const bgImg = new Image(); bgImg.onload=()=>{ bgReadyRef.current=true; }; bgImg.onerror=()=> console.warn('PlaneGame: /media/hintergrundbild.png konnte nicht geladen werden'); bgImg.src='/media/hintergrundbild.png'; bgImgRef.current=bgImg;
   },[]);
 
   // Start / Restart
@@ -326,7 +328,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
       }
     };
   const drawPlane = (ctx:CanvasRenderingContext2D)=>{ const plane=planeRef.current; ctx.save(); ctx.translate(plane.x, plane.y); ctx.rotate(plane.angle * Math.PI/180); if(planeReadyRef.current && planeImgRef.current){ ctx.imageSmoothingEnabled=true; (ctx as any).imageSmoothingQuality='high'; if(PLANE_MIRRORED) ctx.scale(-1,1); ctx.drawImage(planeImgRef.current, -plane.w/2, -plane.h/2, plane.w, plane.h); } else { ctx.fillStyle='#f33'; ctx.fillRect(-plane.w/2, -plane.h/2, plane.w, plane.h); } ctx.restore(); };
-    const drawScrollingBackground = (ctx:CanvasRenderingContext2D)=>{ if(bgReadyRef.current && bgImgRef.current){ const iw=bgImgRef.current.width, ih=bgImgRef.current.height; const scale = LOGICAL_HEIGHT / ih; const tileW = iw*scale; const tileH=LOGICAL_HEIGHT; bgOffsetRef.current -= BG_SCROLL_SPEED * lastFrameDtRef.current; if(bgOffsetRef.current <= -tileW){ bgOffsetRef.current = bgOffsetRef.current % tileW; } let startX = bgOffsetRef.current; while(startX > 0) startX -= tileW; for(let x=startX; x<LOGICAL_WIDTH; x+=tileW){ ctx.drawImage(bgImgRef.current,x,0,tileW,tileH); } ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } else { const grad=ctx.createLinearGradient(0,0,0,LOGICAL_HEIGHT); grad.addColorStop(0,'#4c9be2'); grad.addColorStop(1,'#b5ddff'); ctx.fillStyle=grad; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } };
+  const drawScrollingBackground = (ctx:CanvasRenderingContext2D)=>{ if(bgReadyRef.current && bgImgRef.current){ const iw=bgImgRef.current.naturalWidth || bgImgRef.current.width; const ih=bgImgRef.current.naturalHeight || bgImgRef.current.height; if(iw>0 && ih>0){ const scale = LOGICAL_HEIGHT / ih; const tileW = iw*scale; const tileH=LOGICAL_HEIGHT; bgOffsetRef.current -= BG_SCROLL_SPEED * lastFrameDtRef.current; if(bgOffsetRef.current <= -tileW){ bgOffsetRef.current = bgOffsetRef.current % tileW; } let startX = bgOffsetRef.current; while(startX > 0) startX -= tileW; for(let x=startX; x<LOGICAL_WIDTH; x+=tileW){ ctx.drawImage(bgImgRef.current,x,0,tileW,tileH); } ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } else { ctx.fillStyle='#4c9be2'; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT);} } else { const grad=ctx.createLinearGradient(0,0,0,LOGICAL_HEIGHT); grad.addColorStop(0,'#4c9be2'); grad.addColorStop(1,'#b5ddff'); ctx.fillStyle=grad; ctx.fillRect(0,0,LOGICAL_WIDTH,LOGICAL_HEIGHT); } };
     const drawCloud = (ctx:CanvasRenderingContext2D, c:Cloud)=>{
       ctx.save();
       ctx.translate(c.x, c.y);
