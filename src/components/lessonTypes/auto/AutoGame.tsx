@@ -362,13 +362,7 @@ export default function AutoGame({ lesson, courseId, completedLessons, setComple
               </div>
             )}
           </div>
-          {!isFullscreen && (
-            <div className="mt-2 text-[10px] text-center text-gray-400 space-x-2">
-              <span>Steuerung: ← → / Touch</span>
-              <span>Leertaste Pause</span>
-              <span>F Vollbild</span>
-            </div>
-          )}
+          {/* Steuerungshinweis entfernt laut Anforderung */}
         </div>
         {/* Seitenpanel */}
         <div className={"flex-shrink-0 flex flex-col gap-4 z-10 transition-all " + (isFullscreen? '':'w-full lg:w-80')} style={isFullscreen? {width:fsPanelWidth, alignSelf:'center'}:{}}>

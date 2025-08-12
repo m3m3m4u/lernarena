@@ -33,12 +33,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
   if(variant === 'plane'){
     return (
       <div className="w-full flex flex-col gap-3">
-        <div className="flex justify-center gap-2 mb-1">
-          <button onClick={()=> setVariant('snake')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
-          <button disabled className="px-3 py-1 text-xs rounded border bg-emerald-600 text-white shadow-sm">✈️ Flugzeug</button>
-          <button onClick={()=> setVariant('space')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
-          <button onClick={()=> setVariant('pacman')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
-          <button onClick={()=> setVariant('auto')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
+        <div className="flex justify-center gap-3 mb-2">
+          <button onClick={()=> setVariant('snake')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
+          <button disabled className="px-5 py-2 text-sm rounded border bg-emerald-600 text-white shadow-sm">✈️ Flugzeug</button>
+          <button onClick={()=> setVariant('space')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
+          <button onClick={()=> setVariant('pacman')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
+          <button onClick={()=> setVariant('auto')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
         </div>
         <PlaneGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
       </div>
@@ -48,12 +48,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
   if(variant === 'space'){
     return (
       <div className="w-full flex flex-col gap-3">
-        <div className="flex justify-center gap-2 mb-1">
-          <button onClick={()=> setVariant('snake')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
-          <button onClick={()=> setVariant('plane')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
-          <button disabled className="px-3 py-1 text-xs rounded border bg-violet-600 text-white shadow-sm">🛸 Space</button>
-          <button onClick={()=> setVariant('pacman')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
-          <button onClick={()=> setVariant('auto')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
+        <div className="flex justify-center gap-3 mb-2">
+          <button onClick={()=> setVariant('snake')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
+          <button onClick={()=> setVariant('plane')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
+          <button disabled className="px-5 py-2 text-sm rounded border bg-violet-600 text-white shadow-sm">🛸 Space</button>
+          <button onClick={()=> setVariant('pacman')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
+          <button onClick={()=> setVariant('auto')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
         </div>
         <SpaceImpactGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
       </div>
@@ -63,12 +63,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
   if(variant === 'pacman'){
     return (
       <div className="w-full flex flex-col gap-3">
-        <div className="flex justify-center gap-2 mb-1">
-          <button onClick={()=> setVariant('snake')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
-          <button onClick={()=> setVariant('plane')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
-          <button onClick={()=> setVariant('space')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
-          <button disabled className="px-3 py-1 text-xs rounded border bg-amber-600 text-white shadow-sm">👻 Pacman</button>
-          <button onClick={()=> setVariant('auto')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
+        <div className="flex justify-center gap-3 mb-2">
+          <button onClick={()=> setVariant('snake')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
+          <button onClick={()=> setVariant('plane')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
+          <button onClick={()=> setVariant('space')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
+          <button disabled className="px-5 py-2 text-sm rounded border bg-amber-600 text-white shadow-sm">👻 Pacman</button>
+          <button onClick={()=> setVariant('auto')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
         </div>
         <PacmanGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
       </div>
@@ -78,12 +78,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
   if(variant === 'auto'){
     return (
       <div className="w-full flex flex-col gap-3">
-        <div className="flex justify-center gap-2 mb-1">
-          <button onClick={()=> setVariant('snake')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
-          <button onClick={()=> setVariant('plane')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
-          <button onClick={()=> setVariant('space')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
-          <button onClick={()=> setVariant('pacman')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
-          <button disabled className="px-3 py-1 text-xs rounded border bg-blue-600 text-white shadow-sm">🚗 Auto</button>
+        <div className="flex justify-center gap-3 mb-2">
+          <button onClick={()=> setVariant('snake')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🐍 Snake</button>
+          <button onClick={()=> setVariant('plane')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
+          <button onClick={()=> setVariant('space')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
+          <button onClick={()=> setVariant('pacman')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
+          <button disabled className="px-5 py-2 text-sm rounded border bg-blue-600 text-white shadow-sm">🚗 Auto</button>
         </div>
         <AutoGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
       </div>
@@ -92,23 +92,17 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
 
   return (
     <div className="w-full flex flex-col gap-4">
-      <div className="flex justify-center gap-2 order-first flex-wrap">
-        <button disabled className="px-3 py-1 text-xs rounded border bg-emerald-600 text-white shadow-sm">🐍 Snake</button>
-        <button onClick={()=> setVariant('plane')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
-        <button onClick={()=> setVariant('space')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
-        <button onClick={()=> setVariant('pacman')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
-  <button onClick={()=> setVariant('auto')} className="px-3 py-1 text-xs rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
+      <div className="flex justify-center gap-3 order-first flex-wrap">
+        <button disabled className="px-5 py-2 text-sm rounded border bg-emerald-600 text-white shadow-sm">🐍 Snake</button>
+        <button onClick={()=> setVariant('plane')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">✈️ Flugzeug</button>
+        <button onClick={()=> setVariant('space')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🛸 Space</button>
+        <button onClick={()=> setVariant('pacman')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
+        <button onClick={()=> setVariant('auto')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
       </div>
       <div className="w-full flex flex-col lg:flex-row gap-6">
         <div className="lg:w-64 flex-shrink-0 bg-white border rounded p-4 space-y-4 h-fit min-h-[420px]">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">🐍 Snake Quiz</h2>
-            <div className="flex gap-1">
-              <button onClick={()=> setVariant('plane')} className="px-2 py-1 text-[11px] rounded border bg-gray-50 hover:bg-white">✈️ Flugzeug</button>
-              <button onClick={()=> setVariant('space')} className="px-2 py-1 text-[11px] rounded border bg-gray-50 hover:bg-white">🛸 Space</button>
-              <button onClick={()=> setVariant('pacman')} className="px-2 py-1 text-[11px] rounded border bg-gray-50 hover:bg-white">👻 Pacman</button>
-              <button onClick={()=> setVariant('auto')} className="px-2 py-1 text-[11px] rounded border bg-gray-50 hover:bg-white">🚗 Auto</button>
-            </div>
           </div>
           <div className="text-sm space-y-1">
             <div><span className="font-medium">Punkte:</span> {score} / {targetScore}</div>
