@@ -2,11 +2,11 @@
 import { useState } from "react";
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({ username: "", name: "", password: "" });
+  const [form, setForm] = useState({ username: "", name: "", password: "", email: "", desiredRole: "" });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -14,17 +14,22 @@ export default function RegisterPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
-    const res = await fetch("/api/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Fehler bei der Registrierung.");
-    } else {
-      setSuccess("Registrierung erfolgreich! Du kannst dich jetzt einloggen.");
-      setForm({ username: "", name: "", password: "" });
+    try {
+      const res = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(form),
+      });
+      let data: any = {};
+      try { data = await res.json(); } catch { /* leere/ungültige Antwort */ }
+      if (!res.ok) {
+        setError(data?.error || `Fehler (${res.status})`);
+      } else {
+        setSuccess("Registrierung erfolgreich! Du kannst dich jetzt einloggen.");
+  setForm({ username: "", name: "", password: "", email: "", desiredRole: "" });
+      }
+    } catch {
+      setError('Netzwerkfehler');
     }
   };
 
@@ -40,6 +45,14 @@ export default function RegisterPage() {
           onChange={handleChange}
           className="w-full p-2 border rounded"
           required
+        />
+        <input
+          type="email"
+          name="email"
+          placeholder="E-Mail (optional)"
+          value={form.email}
+          onChange={handleChange}
+          className="w-full p-2 border rounded"
         />
         <input
           type="text"
@@ -59,16 +72,28 @@ export default function RegisterPage() {
           className="w-full p-2 border rounded"
           required
         />
+        <select
+          name="desiredRole"
+          value={form.desiredRole}
+          onChange={handleChange}
+          className="w-full p-2 border rounded"
+        >
+          <option value="">Lernende/r (Standard)</option>
+          <option value="author">Autor (Freischaltung nötig)</option>
+          <option value="teacher">Lehrperson (Freischaltung nötig)</option>
+        </select>
         <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded font-semibold">Registrieren</button>
+  <p className="text-center text-xs text-gray-600">Schon registriert? <a href="/login" className="text-blue-600 underline">Zum Login</a></p>
       </form>
       {error && <p className="text-red-600 mt-4">{error}</p>}
-      {success && (
+  {success && (
         <div className="text-green-600 mt-4">
           {success}
           <br />
           <a href="/login" className="text-blue-600 underline">Jetzt einloggen</a>
         </div>
       )}
+  <p className="mt-6 text-xs text-gray-500 leading-relaxed">Standard ist Lernende/r. Wenn du Autor oder Lehrperson auswählst, startest du als pending und musst freigeschaltet werden.</p>
     </div>
   );
 }
