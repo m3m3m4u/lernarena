@@ -8,6 +8,7 @@ interface DashboardUser {
   name?: string;
   stars?: number;
   completedLessons: string[];
+  role?: string;
 }
 
 export default function DashboardPage() {
@@ -70,10 +71,14 @@ export default function DashboardPage() {
         <a href="/arena" className="bg-purple-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-purple-700 transition">
           🏆 Arena
         </a>
-        {session?.user?.role === 'author' && (
-          <a href="/autor" className="bg-orange-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-orange-700 transition">
-            🛠️ Autor
-          </a>
+  {(['author','admin'] as string[]).includes((session?.user as any)?.role) && (
+          <a href="/autor" className="bg-orange-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-orange-700 transition">🛠️ Autor</a>
+        )}
+        {(['teacher','admin'] as string[]).includes((session?.user as any)?.role) && (
+          <a href="/teacher" className="bg-indigo-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-indigo-700 transition">👩‍🏫 Teacher</a>
+        )}
+  {(session?.user as any)?.role === 'admin' && (
+          <a href="/admin/users" className="bg-red-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-red-700 transition">🔐 Admin</a>
         )}
       </div>
 
@@ -85,10 +90,20 @@ export default function DashboardPage() {
             <div><strong>Benutzername:</strong> {user.username}</div>
             <div><strong>Name:</strong> {user.name || '—'}</div>
             <div><strong>⭐ Sterne:</strong> {user.stars ?? 0}</div>
+            <div><strong>Rolle:</strong> {(session?.user as any)?.role}</div>
             <div className="flex items-center gap-2 flex-wrap">
               <strong>Abgeschlossene Lektionen:</strong>
               <span>{user.completedLessons?.length ?? 0}</span>
             </div>
+            {(session?.user as any)?.role === 'pending-author' && (
+              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-300 rounded p-2 mt-2">Dein Autor-Zugang wartet auf Freischaltung.</div>
+            )}
+            {(session?.user as any)?.role === 'pending-teacher' && (
+              <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-300 rounded p-2 mt-2">Dein Lehrpersonen-Zugang wartet auf Freischaltung.</div>
+            )}
+            {(!(session?.user as any)?.role || (session?.user as any)?.role==='learner') && (
+              <AutorWerden />
+            )}
           </div>
         </>
       ) : (
@@ -96,4 +111,18 @@ export default function DashboardPage() {
       )}
     </main>
   );
+}
+
+function AutorWerden(){
+  const [requested,setRequested] = useState(false);
+  const [busy,setBusy]=useState(false);
+  async function request(){
+    setBusy(true);
+    try{
+      const res = await fetch('/api/user/request-author',{ method:'POST'});
+      if(res.ok){ setRequested(true); }
+    } finally { setBusy(false); }
+  }
+  if(requested) return <div className="text-xs text-green-700 bg-green-50 border border-green-300 rounded p-2 mt-2">Anfrage gesendet. Du erscheinst nun als pending-author.</div>;
+  return <button disabled={busy} onClick={request} className="mt-3 text-xs px-3 py-1 border rounded bg-white hover:bg-gray-50 disabled:opacity-50">Autor werden (Anfrage)</button>;
 }

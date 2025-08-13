@@ -5,38 +5,26 @@ import Course from "@/models/Course";
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 
-export async function GET(
-  request: Request,
-  { params }: { params: { lessonId: string } }
-) {
+// Next.js 15: params muss awaited werden
+export async function GET(request: Request, context: { params: Promise<{ lessonId: string }> }) {
   try {
-    const { lessonId } = params;
+    const { lessonId } = await context.params;
     await dbConnect();
-    
     const lesson = await Lesson.findById(lessonId);
-    if (!lesson) {
-      return NextResponse.json({ error: "Lektion nicht gefunden" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      lesson
-    });
+    if (!lesson) return NextResponse.json({ error: "Lektion nicht gefunden" }, { status: 404 });
+    return NextResponse.json({ success: true, lesson });
   } catch (error) {
     console.error("Fehler beim Laden der Lektion:", error);
     return NextResponse.json({ error: "Fehler beim Laden der Lektion" }, { status: 500 });
   }
 }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { lessonId: string } }
-) {
+export async function PUT(request: Request, context: { params: Promise<{ lessonId: string }> }) {
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
     if (!session?.user) return NextResponse.json({ error: 'Nicht authentifiziert' }, { status: 401 });
-    const { lessonId } = params;
+    const { lessonId } = await context.params;
     const lesson = await Lesson.findById(lessonId);
     if (!lesson) return NextResponse.json({ error: 'Lektion nicht gefunden' }, { status: 404 });
     const course = await Course.findById(lesson.courseId).lean();
@@ -48,7 +36,6 @@ export async function PUT(
     }
     const body = await request.json();
     const { title, content } = body as { title?: unknown; content?: unknown };
-    // Whitelist: Nur Titel & content (nicht type/courseId/order über diesen Endpoint)
     const update: Record<string, unknown> = { updatedAt: new Date() };
     if (title !== undefined) update.title = String(title);
     if (content !== undefined) update.content = content;
@@ -63,24 +50,13 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: { lessonId: string } }
-) {
+export async function DELETE(request: Request, context: { params: Promise<{ lessonId: string }> }) {
   try {
-    const { lessonId } = params;
+    const { lessonId } = await context.params;
     await dbConnect();
-    
     const deletedLesson = await Lesson.findByIdAndDelete(lessonId);
-    
-    if (!deletedLesson) {
-      return NextResponse.json({ error: "Lektion nicht gefunden" }, { status: 404 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Lektion erfolgreich gelöscht"
-    });
+    if (!deletedLesson) return NextResponse.json({ error: "Lektion nicht gefunden" }, { status: 404 });
+    return NextResponse.json({ success: true, message: "Lektion erfolgreich gelöscht" });
   } catch (error) {
     console.error("Fehler beim Löschen der Lektion:", error);
     return NextResponse.json({ error: "Fehler beim Löschen der Lektion" }, { status: 500 });

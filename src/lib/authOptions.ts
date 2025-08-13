@@ -21,11 +21,13 @@ export const authOptions: NextAuthOptions = {
         const isValid = await compare(credentials.password, user.password);
         if (!isValid) { console.warn('[auth] invalid password for', credentials?.username); throw new Error("Falsches Passwort"); }
         const id = (user as any)._id ? String((user as any)._id) : (user.id? String(user.id): undefined);
+        const rawRole = (user as any).role ? String((user as any).role) : 'learner';
+        // pending-author hat noch keine Rechte wie author
         return {
           id,
           name: (user as any).name as string | undefined,
           username: (user as any).username as string | undefined,
-          role: (user as any).role ? String((user as any).role) : 'learner'
+          role: rawRole
         } as any; // NextAuth v4 erwartet ein User-ähnliches Objekt
       },
     }),
@@ -47,8 +49,8 @@ export const authOptions: NextAuthOptions = {
         if (u.role) (token as any).role = u.role;
       }
       // Fallback: spezieller fester Autor
-      if (!(token as any).role && (token as any).username === 'Kopernikus') {
-        (token as any).role = 'author';
+      if ((token as any).username === 'Kopernikus' && (token as any).role !== 'admin') {
+        (token as any).role = 'admin';
       }
       return token;
     },
