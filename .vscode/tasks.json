@@ -1,12 +1,22 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "dev",
-      "type": "shell",
-      "command": "npm run dev",
-      "group": "build",
-      "problemMatcher": []
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "dev",
+			"type": "shell",
+			"command": "npm run dev",
+			"group": "build",
+			"problemMatcher": []
+		},
+		{
+			"label": "typecheck",
+			"type": "shell",
+			"command": "npm run typecheck"
+		},
+		{
+			"label": "reload-client",
+			"type": "shell",
+			"command": "node -e \"console.log('noop')\""
+		}
+	]
 }

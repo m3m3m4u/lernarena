@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
 import TeacherClass from '@/models/TeacherClass';
 import { hash } from 'bcryptjs';
+import { isValidObjectId } from 'mongoose';
 
 // Teacher Management Endpoint
 // GET: Übersicht (eigene Klassen + eigene Lernende)
@@ -14,25 +15,58 @@ import { hash } from 'bcryptjs';
 // PATCH action=moveLearner { learnerUsername, toClassId|null }
 // DELETE action=deleteLearner { learnerUsername }
 
-export async function GET(){
-  await dbConnect();
+export async function GET(req: NextRequest){
+  try { await dbConnect(); } catch (e:any) { return NextResponse.json({ success:false, error:`DB-Verbindung fehlgeschlagen: ${e?.message||e}` }, { status:500 }); }
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  const teacherId = (session?.user as any)?.id;
+  let teacherId = (session?.user as any)?.id;
+  if(!teacherId && (session?.user as any)?.username){
+    const self = await User.findOne({ username: (session?.user as any)?.username }, '_id').lean();
+    if(self) teacherId = String(self._id);
+  }
+  // Admin darf per Query-Param teacher (username oder id) anderen Kontext wählen
+  const url = new URL(req.url);
+  const teacherParam = url.searchParams.get('teacher');
+  let resolvedTeacherUsername: string | null = null;
+  let resolvedTeacher = false;
+  if(role === 'admin' && teacherParam){
+    const filter = isValidObjectId(teacherParam) ? { _id: teacherParam } : { username: teacherParam };
+    const other = await User.findOne(filter, '_id role username').lean();
+    if(other && other.role === 'teacher') { teacherId = String(other._id); resolvedTeacherUsername = other.username as any; resolvedTeacher = true; }
+    else {
+      // Admin hat teacher Param gesetzt, aber kein passender Teacher gefunden -> klarer Fehler statt stiller Fallback
+      return NextResponse.json({ success:false, error:'Teacher nicht gefunden oder keine Rolle teacher', _context:{ teacherParam } }, { status:404 });
+    }
+  }
   if(role !== 'teacher' && role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const classes = await TeacherClass.find({ teacher: teacherId }).lean();
-  const learners = await User.find({ ownerTeacher: teacherId }, 'username name email class createdAt role').lean();
-  return NextResponse.json({ success:true, classes, learners });
+  const learners = await User.find({ ownerTeacher: teacherId }, '_id username name email class createdAt role').lean();
+  return NextResponse.json({ success:true, classes, learners, _context: { teacherId, teacherParam: teacherParam||null, resolvedTeacherUsername } });
 }
 
 export async function POST(req: NextRequest){
-  await dbConnect();
+  try { await dbConnect(); } catch (e:any) { return NextResponse.json({ success:false, error:`DB-Verbindung fehlgeschlagen: ${e?.message||e}` }, { status:500 }); }
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  const teacherId = (session?.user as any)?.id;
+  let teacherId = (session?.user as any)?.id;
+  if(!teacherId && (session?.user as any)?.username){
+    const self = await User.findOne({ username: (session?.user as any)?.username }, '_id').lean();
+    if(self) teacherId = String(self._id);
+  }
   if(role !== 'teacher' && role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await req.json().catch(()=>({}));
   const { action } = body;
+  if(role==='admin' && (body.teacherUsername || body.teacherId)){
+    let other = null as any;
+    if(body.teacherId && isValidObjectId(body.teacherId)){
+      other = await User.findOne({ _id: body.teacherId }, '_id role').lean();
+    }
+    if(!other && body.teacherUsername){
+      other = await User.findOne({ username: body.teacherUsername }, '_id role').lean();
+    }
+    if(other && other.role==='teacher') teacherId = String(other._id);
+  }
+  if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
   if(action === 'createClass'){
     const { name } = body;
     if(!name) return NextResponse.json({ success:false, error:'Name fehlt' }, { status:400 });
@@ -45,7 +79,14 @@ export async function POST(req: NextRequest){
     const existing = await User.findOne({ username });
     if(existing) return NextResponse.json({ success:false, error:'Benutzer existiert' }, { status:409 });
     const hashed = await hash(password, 10);
-    const learner = await User.create({ username, name, password: hashed, email: email||undefined, role:'learner', ownerTeacher: teacherId, class: classId || undefined });
+    let classRef: any = undefined;
+    if(classId){
+      if(!isValidObjectId(classId)) return NextResponse.json({ success:false, error:'Ungültige Klassen-ID' }, { status:400 });
+      const cls = await TeacherClass.findOne({ _id: classId, teacher: teacherId }, '_id');
+      if(!cls) return NextResponse.json({ success:false, error:'Klasse nicht gefunden' }, { status:404 });
+      classRef = cls._id;
+    }
+    const learner = await User.create({ username, name, password: hashed, email: email||undefined, role:'learner', ownerTeacher: teacherId, class: classRef });
     return NextResponse.json({ success:true, learner:{ username: learner.username, name: learner.name } });
   }
   if(action === 'bulkCreateLearners'){
@@ -74,24 +115,68 @@ export async function POST(req: NextRequest){
     }
     return NextResponse.json({ success:true, createdCount: created.length, skippedCount: skipped.length, created, skipped });
   }
+  // Admin-only: Lernende per Benutzernamen dem gewählten Teacher zuordnen
+  if(action === 'reassignLearnerOwner'){
+    if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+    const { learnerUsernames } = body as any;
+    if(!Array.isArray(learnerUsernames) || learnerUsernames.length===0){
+      return NextResponse.json({ success:false, error:'learnerUsernames fehlt' }, { status:400 });
+    }
+    if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
+    // Erlaubte Klassen des Ziel-Teachers
+    const allowedClasses = await TeacherClass.find({ teacher: teacherId }, '_id').lean();
+    const allowedSet = new Set(allowedClasses.map((c:any)=>String(c._id)));
+    let updated = 0; let clearedClass = 0; const notFound:string[] = [];
+    for(const uname of learnerUsernames){
+      const learner = await User.findOne({ username: uname });
+      if(!learner){ notFound.push(uname); continue; }
+      learner.ownerTeacher = teacherId as any;
+      if(learner.class && !allowedSet.has(String(learner.class))){ learner.class = undefined as any; clearedClass++; }
+      await learner.save();
+      updated++;
+    }
+    return NextResponse.json({ success:true, updated, clearedClass, notFound });
+  }
   return NextResponse.json({ success:false, error:'Unbekannte Aktion' }, { status:400 });
 }
 
 export async function PATCH(req: NextRequest){
-  await dbConnect();
+  try { await dbConnect(); } catch (e:any) { return NextResponse.json({ success:false, error:`DB-Verbindung fehlgeschlagen: ${e?.message||e}` }, { status:500 }); }
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  const teacherId = (session?.user as any)?.id;
+  let teacherId = (session?.user as any)?.id;
+  if(!teacherId && (session?.user as any)?.username){
+    const self = await User.findOne({ username: (session?.user as any)?.username }, '_id').lean();
+    if(self) teacherId = String(self._id);
+  }
   if(role !== 'teacher' && role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await req.json().catch(()=>({}));
   const { action } = body;
+  if(role==='admin' && (body.teacherUsername || body.teacherId)){
+    let other = null as any;
+    if(body.teacherId && isValidObjectId(body.teacherId)){
+      other = await User.findOne({ _id: body.teacherId }, '_id role').lean();
+    }
+    if(!other && body.teacherUsername){
+      other = await User.findOne({ username: body.teacherUsername }, '_id role').lean();
+    }
+    if(other && other.role==='teacher') teacherId = String(other._id);
+  }
+  if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
   if(action === 'moveLearner'){
     const { learnerUsername, toClassId } = body;
     if(!learnerUsername) return NextResponse.json({ success:false, error:'learnerUsername fehlt' }, { status:400 });
     const learner = await User.findOne({ username: learnerUsername });
     if(!learner) return NextResponse.json({ success:false, error:'Nicht gefunden' }, { status:404 });
     if(String(learner.ownerTeacher) !== String(teacherId) && role!=='admin') return NextResponse.json({ success:false, error:'Keine Berechtigung' }, { status:403 });
-    learner.class = toClassId || undefined;
+    if(toClassId){
+      if(!isValidObjectId(toClassId)) return NextResponse.json({ success:false, error:'Ungültige Klassen-ID' }, { status:400 });
+  const cls = await TeacherClass.findOne({ _id: toClassId, teacher: teacherId }, '_id');
+      if(!cls) return NextResponse.json({ success:false, error:'Klasse nicht gefunden' }, { status:404 });
+  learner.class = (cls as any)._id as any;
+    } else {
+      learner.class = undefined;
+    }
     await learner.save();
     return NextResponse.json({ success:true });
   }
@@ -99,13 +184,28 @@ export async function PATCH(req: NextRequest){
 }
 
 export async function DELETE(req: NextRequest){
-  await dbConnect();
+  try { await dbConnect(); } catch (e:any) { return NextResponse.json({ success:false, error:`DB-Verbindung fehlgeschlagen: ${e?.message||e}` }, { status:500 }); }
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
-  const teacherId = (session?.user as any)?.id;
+  let teacherId = (session?.user as any)?.id;
+  if(!teacherId && (session?.user as any)?.username){
+    const self = await User.findOne({ username: (session?.user as any)?.username }, '_id').lean();
+    if(self) teacherId = String(self._id);
+  }
   if(role !== 'teacher' && role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await req.json().catch(()=>({}));
   const { action, learnerUsername } = body;
+  if(role==='admin' && (body.teacherUsername || body.teacherId)){
+    let other = null as any;
+    if(body.teacherId && isValidObjectId(body.teacherId)){
+      other = await User.findOne({ _id: body.teacherId }, '_id role').lean();
+    }
+    if(!other && body.teacherUsername){
+      other = await User.findOne({ username: body.teacherUsername }, '_id role').lean();
+    }
+    if(other && other.role==='teacher') teacherId = String(other._id);
+  }
+  if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
   if(action === 'deleteLearner'){
     if(!learnerUsername) return NextResponse.json({ success:false, error:'learnerUsername fehlt' }, { status:400 });
     const learner = await User.findOne({ username: learnerUsername });

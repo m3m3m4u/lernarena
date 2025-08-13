@@ -17,6 +17,7 @@ export default function DashboardPage() {
   const [user, setUser] = useState<DashboardUser | null>(null);
   const [loadingUser, setLoadingUser] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unread, setUnread] = useState<number>(0);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -39,6 +40,24 @@ export default function DashboardPage() {
     };
     void fetchUser();
   }, [session?.user?.username]);
+
+  // Ungelesene Nachrichten (eingehend) zählen und anzeigen
+  useEffect(() => {
+    let timer: any;
+    async function loadUnread(){
+      try{
+        const res = await fetch('/api/messages/unread');
+        const d = await res.json();
+        if(res.ok && d.success) setUnread(d.count||0); else setUnread(0);
+      } catch { /* ignore */ }
+    }
+    if(status==='authenticated'){
+      void loadUnread();
+      // Optionales leichtes Polling, damit Badge aktuell bleibt
+      timer = setInterval(loadUnread, 30000);
+    }
+    return () => { if(timer) clearInterval(timer); };
+  }, [status]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -79,6 +98,17 @@ export default function DashboardPage() {
         )}
   {(session?.user as any)?.role === 'admin' && (
           <a href="/admin/users" className="bg-red-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-red-700 transition">🔐 Admin</a>
+        )}
+        {((session?.user as any)?.role==='teacher' || (session?.user as any)?.role==='admin' || (!!user && (session?.user as any)?.role==='learner')) && (
+          // Für Lernende nur anzeigen, wenn vom Teacher erstellt (ownerTeacher vorhanden)
+          ((session?.user as any)?.role!=='learner' || (user as any)?.ownerTeacher) ? (
+            <a href="/messages" className="relative bg-gray-700 text-white py-3 px-4 rounded text-center font-semibold hover:bg-gray-800 transition" title="Liste: Hintergrund zeigt deinen Lese-Status. Punkt: Orange = Empfänger noch nicht gelesen, Grün = Empfänger hat gelesen.">
+              💬 Nachrichten
+              {unread>0 && (
+                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-5 text-center">{unread}</span>
+              )}
+            </a>
+          ) : null
         )}
       </div>
 

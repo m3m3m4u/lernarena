@@ -89,7 +89,11 @@ export default function AdminUsersPage(){
 
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-10">
-      <h1 className="text-2xl font-bold">Benutzerverwaltung</h1>
+      <div className="flex items-center justify-between">
+        <a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Zurück zum Dashboard</a>
+        <h1 className="text-2xl font-bold">Benutzerverwaltung</h1>
+        <div />
+      </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
   <section className="bg-white border rounded p-4">
         <h2 className="font-semibold mb-3">Ausstehende Autor-Anfragen ({pending.length})</h2>
@@ -135,7 +139,7 @@ export default function AdminUsersPage(){
                   <td className="py-1 px-2">{t.name}</td>
                   <td className="py-1 px-2">{t.email||'—'}</td>
                   <td className="py-1 px-2">
-                    <button disabled={updating===t.username} onClick={()=>changeRole(t.username,'learner')} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50">Zu Lernendem</button>
+                    <a href={`/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Teacher-Panel öffnen</a>
                   </td>
                 </tr>
               ))}
