@@ -10,11 +10,17 @@ const securityHeaders = [
   { key: 'X-XSS-Protection', value: '1; mode=block' },
   { key: 'Content-Security-Policy', value: [
       "default-src 'self'",
+      // Next.js dev benötigt teils eval; in Prod ggf. strenger machen
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob:",
+  "img-src 'self' data: blob: https://blob.vercel-storage.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "frame-src 'self' https://www.youtube.com https://youtu.be",
+      // YouTube Embeds
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://youtu.be",
+      // Für Media Blob URLs (z. B. @vercel/blob signed URLs)
+  "media-src 'self' blob: https://blob.vercel-storage.com",
+      // Connect für API/Blob ggf. erweitern
+      "connect-src 'self'",
     ].join('; ') }
 ];
 
@@ -25,6 +31,24 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['react', 'react-dom']
   },
+  // Unterdrückt gezielt die harmlosen Warnings durch den absichtlich dynamischen Import in /api/media
+  webpack: (config) => {
+    const prev = config.ignoreWarnings || [];
+    config.ignoreWarnings = [
+      ...prev,
+      (warning: any) => {
+        try {
+          const msg: string = warning?.message || '';
+          const mod: string = warning?.module?.resource || '';
+          return msg.includes('Critical dependency: the request of a dependency is an expression')
+            && /[\\\/]src[\\\/]app[\\\/]api[\\\/]media[\\\/]route\.(t|j)s$/.test(mod);
+        } catch {
+          return false;
+        }
+      }
+    ];
+    return config;
+  },
   async headers() {
     return [
       { source: '/(.*)', headers: securityHeaders }
@@ -33,7 +57,8 @@ const nextConfig: NextConfig = {
   // Images optional konfigurieren (erweitern falls externe Domains genutzt)
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'i.ytimg.com' }
+      { protocol: 'https', hostname: 'i.ytimg.com' },
+      { protocol: 'https', hostname: 'blob.vercel-storage.com' }
     ]
   }
 };

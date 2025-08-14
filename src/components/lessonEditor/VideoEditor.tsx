@@ -4,6 +4,8 @@ import TitleCategoryBar from '@/components/shared/TitleCategoryBar';
 import MarkdownPreview from '@/components/shared/MarkdownPreview';
 import { extractYouTubeId } from '@/lib/extractYouTubeId';
 import { Lesson } from './types';
+import { useState } from 'react';
+import MediaPicker from '@/components/media/MediaPicker';
 
 interface Props {
   lesson: Lesson;
@@ -16,6 +18,7 @@ interface Props {
 }
 
 export default function VideoEditor({ lesson, title, setTitle, category, setCategory, videoUrl, setVideoUrl, videoText, setVideoText, handleSave, saving, returnToExercises }: Props) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   const trimmed = videoUrl.trim();
   const vid = extractYouTubeId(trimmed);
   const rawContent = lesson.content ? JSON.stringify(lesson.content, null, 2) : '{}';
@@ -29,7 +32,10 @@ export default function VideoEditor({ lesson, title, setTitle, category, setCate
         <div className="bg-white border rounded p-6">
           <h3 className="font-semibold mb-4">🎥 Video</h3>
           <label className="block text-sm font-medium mb-1">YouTube-Link oder ID</label>
-          <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} className="w-full p-2 border rounded mb-3" placeholder="https://youtu.be/dQw4w9WgXcQ oder dQw4w9WgXcQ" />
+          <div className="flex gap-2 mb-3">
+            <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} className="w-full p-2 border rounded" placeholder="https://youtu.be/dQw4w9WgXcQ oder dQw4w9WgXcQ" />
+            <button type="button" className="px-3 py-2 text-sm rounded border bg-white hover:bg-gray-50" title="Aus Medien wählen" onClick={()=> setPickerOpen(true)}>🖼️</button>
+          </div>
           <label className="block text-sm font-medium mb-1">Begleittext (Markdown)</label>
             <textarea value={videoText} onChange={e => setVideoText(e.target.value)} className="w-full h-72 p-3 border rounded font-mono text-sm" placeholder="Optionaler Markdown-Text zum Video …" />
           <div className="mt-4 flex gap-3">
@@ -65,6 +71,13 @@ export default function VideoEditor({ lesson, title, setTitle, category, setCate
           </details>
         </div>
       </div>
+      {pickerOpen && (
+        <MediaPicker
+          open={pickerOpen}
+          onClose={()=> setPickerOpen(false)}
+          onSelect={(item)=>{ setVideoUrl(item.url); setPickerOpen(false); }}
+        />
+      )}
     </main>
   );
 }

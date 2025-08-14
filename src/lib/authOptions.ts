@@ -66,8 +66,8 @@ export const authOptions: NextAuthOptions = {
         if (u.name) token.name = u.name;
         if (u.role) (token as any).role = u.role;
       }
-      // Fallback: spezieller fester Autor
-      if ((token as any).username === 'Kopernikus' && (token as any).role !== 'admin') {
+      // Dev-Fallback: spezieller fester Autor (nur außerhalb Produktion)
+      if (process.env.NODE_ENV !== 'production' && (token as any).username === 'Kopernikus' && (token as any).role !== 'admin') {
         (token as any).role = 'admin';
       }
       return token;

@@ -27,7 +27,7 @@ export default function MarkdownLesson({ lesson, courseId, completedLessons, set
   const alreadyDone = completedLessons.includes(lesson._id);
 
   const markCompleted = useCallback(async ()=>{
-    if(!sessionUsername || alreadyDone || lastMarkedRef.current) return;
+    if(alreadyDone || lastMarkedRef.current) return;
     lastMarkedRef.current = true;
     setMarking(true);
     try {

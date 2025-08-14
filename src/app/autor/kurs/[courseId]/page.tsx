@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter, usePathname, useParams } from "next/navigation";
 import { useToast } from "@/components/shared/ToastProvider";
+import { useSession } from 'next-auth/react';
+import MediaLibrary from '@/components/media/MediaLibrary';
 
 // Minimale Typen für diese Seite
 type LessonListItem = {
@@ -19,87 +21,106 @@ type LessonListItem = {
 };
 
 export default function CourseEditorPage() {
-  const params = useParams();
-  const courseId = String((params as any)?.courseId || "");
   const router = useRouter();
   const pathname = usePathname();
-  const inTeacher = pathname?.startsWith("/teacher/");
+  const params = useParams();
+  const { data: session } = useSession();
+  const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"overview" | "create-lesson" | "existing-lessons">("overview");
+  const courseId = String(params?.courseId || '');
+  const inTeacher = pathname?.startsWith('/teacher/');
+  const role = (session?.user as any)?.role as string | undefined;
+  // Teacher-Bereich: Medien stets read-only; Autor/Admin nur im Autor-Bereich upload
+  const canUpload = inTeacher ? false : (role === 'author' || role === 'admin');
+
+  const [activeTab, setActiveTab] = useState<'overview'|'create-lesson'|'existing-lessons'|'media'>('overview');
   const [actualLessonsCount, setActualLessonsCount] = useState(0);
 
   const loadActualLessonsCount = useCallback(async () => {
+    if (!courseId) return;
     try {
-      const r = await fetch(`/api/kurs/${courseId}/lektionen`);
-      if (!r.ok) return;
-      const d = await r.json();
-      const lessons = Array.isArray(d) ? d : (Array.isArray(d.lessons) ? d.lessons : []);
-      setActualLessonsCount(lessons.length);
-    } catch {}
+      const res = await fetch(`/api/kurs/${courseId}/lektionen`);
+      const d = await res.json().catch(()=>({}));
+      const arr = Array.isArray(d) ? d : (Array.isArray(d?.lessons) ? d.lessons : []);
+      setActualLessonsCount((arr as any[]).length || 0);
+    } catch {/* ignore */}
   }, [courseId]);
 
   useEffect(() => { void loadActualLessonsCount(); }, [loadActualLessonsCount]);
 
   const handleDeleteLesson = async (lessonId: string) => {
     if (!lessonId) return;
-    if (!confirm("Lektion wirklich löschen?")) return;
+    if (!confirm('Lektion wirklich löschen?')) return;
     try {
-      const res = await fetch(`/api/kurs/${courseId}/lektionen/${lessonId}`, { method: "DELETE" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) alert(data.error || "Fehler beim Löschen");
-      await loadActualLessonsCount();
+      const res = await fetch(`/api/kurs/${courseId}/lektionen/${lessonId}`, { method: 'DELETE' });
+      const d = await res.json().catch(()=>({}));
+      if(!res.ok || !d?.success){
+        toast({ kind:'error', title:'Löschen fehlgeschlagen', message: d?.error || 'Bitte erneut versuchen.' });
+        return;
+      }
+      toast({ kind:'success', title:'Gelöscht', message: 'Die Lektion wurde entfernt.' });
+      void loadActualLessonsCount();
     } catch {
-      alert("Netzwerkfehler");
+      toast({ kind:'error', title:'Netzwerkfehler', message: 'Löschen nicht möglich.' });
     }
   };
 
   return (
-    <main className="max-w-6xl mx-auto mt-10 p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Kurs bearbeiten</h1>
-        <div className="flex gap-3">
-          <button
-            onClick={() => router.push(inTeacher ? `/teacher/kurs/${courseId}/einstellungen` : `/autor/kurs/${courseId}/einstellungen`)}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-          >
-            ⚙️ Einstellungen
-          </button>
+    <main className="max-w-6xl mx-auto mt-8 p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <a href={inTeacher? '/teacher/kurse' : '/autor'} className="text-sm text-blue-600 hover:underline">← Zurück</a>
+          <h1 className="text-2xl font-bold">Kurs bearbeiten</h1>
         </div>
+        <button
+          onClick={() => router.push(inTeacher ? `/teacher/kurs/${courseId}/einstellungen` : `/autor/kurs/${courseId}/einstellungen`)}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          ⚙️ Einstellungen
+        </button>
       </div>
 
       <div className="bg-white border rounded">
         <div className="border-b">
           <div className="flex">
             <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-6 py-3 font-medium ${activeTab === "overview" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600 hover:text-gray-800"}`}
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3 font-medium ${activeTab === 'overview' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
             >
               📋 Lektionen ({actualLessonsCount})
             </button>
             <button
-              onClick={() => setActiveTab("create-lesson")}
-              className={`px-6 py-3 font-medium ${activeTab === "create-lesson" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600 hover:text-gray-800"}`}
+              onClick={() => setActiveTab('create-lesson')}
+              className={`px-6 py-3 font-medium ${activeTab === 'create-lesson' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
             >
               ➕ Neue Lektion
             </button>
             <button
-              onClick={() => setActiveTab("existing-lessons")}
-              className={`px-6 py-3 font-medium ${activeTab === "existing-lessons" ? "border-b-2 border-blue-500 text-blue-600" : "text-gray-600 hover:text-gray-800"}`}
+              onClick={() => setActiveTab('existing-lessons')}
+              className={`px-6 py-3 font-medium ${activeTab === 'existing-lessons' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
             >
               📚 Vorhandene einfügen
             </button>
+            <button
+              onClick={() => setActiveTab('media')}
+              className={`px-6 py-3 font-medium ${activeTab === 'media' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
+            >
+              🖼️ Medien
+            </button>
           </div>
         </div>
-
         <div className="p-6">
-          {activeTab === "overview" && (
+          {activeTab === 'overview' && (
             <LessonsOverviewTab courseId={courseId} onDelete={handleDeleteLesson} onLessonsCountChange={setActualLessonsCount} />
           )}
-          {activeTab === "create-lesson" && (
+          {activeTab === 'create-lesson' && (
             <CreateLessonTab courseId={courseId} onLessonCreated={loadActualLessonsCount} />
           )}
-          {activeTab === "existing-lessons" && (
+          {activeTab === 'existing-lessons' && (
             <ExistingLessonsTab courseId={courseId} onLessonAdded={loadActualLessonsCount} />
+          )}
+          {activeTab === 'media' && (
+            <MediaLibrary canUpload={!!canUpload} />
           )}
         </div>
       </div>

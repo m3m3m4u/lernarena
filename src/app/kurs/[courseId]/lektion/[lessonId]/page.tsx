@@ -136,6 +136,15 @@ export default function LessonPage() {
     loadLesson();
   }, [loadLesson]);
 
+  // Zuletzt weitergemacht (für Dashboard): beim Öffnen merken
+  useEffect(() => {
+    try {
+      if (courseId) localStorage.setItem('last:courseId', String(courseId));
+      if (lessonId) localStorage.setItem('last:lessonId', String(lessonId));
+      if (courseId) localStorage.setItem(`course:${courseId}:lastTouched`, String(Date.now()));
+    } catch {}
+  }, [courseId, lessonId]);
+
   // Helper zum Normalisieren von Antworten (früher vorhanden, wiederhergestellt)
   const norm = (s: unknown) => (typeof s === 'string' ? s.trim() : String(s ?? ''));
 
@@ -328,17 +337,15 @@ export default function LessonPage() {
       (async () => {
         try {
           const username = session?.user?.username;
-          if (username) {
-            setMarking(true);
-            await finalizeLesson({
-              username,
-              lessonId: lesson._id,
-              courseId: lesson.courseId,
-              type: lesson.type,
-              earnedStar: lesson.type !== 'markdown' && !completedLessons.includes(lesson._id)
-            });
-            setCompletedLessons(prev => prev.includes(lesson._id) ? prev : [...prev, lesson._id]);
-          }
+          setMarking(true);
+          await finalizeLesson({
+            username, // optional für Gäste
+            lessonId: lesson._id,
+            courseId: lesson.courseId,
+            type: lesson.type,
+            earnedStar: lesson.type !== 'markdown' && !completedLessons.includes(lesson._id)
+          });
+          setCompletedLessons(prev => prev.includes(lesson._id) ? prev : [...prev, lesson._id]);
         } catch (e) {
           console.error('Abschließen fehlgeschlagen', e);
         } finally {
@@ -378,12 +385,12 @@ export default function LessonPage() {
   const isSnake = lesson?.type === 'snake';
   const markVideoCompleted = useCallback(async () => {
     const username = session?.user?.username;
-    if (!lesson || !username) return;
+    if (!lesson) return;
     if (completedLessons.includes(lesson._id)) return;
     setMarking(true);
     try {
       await finalizeLesson({
-        username,
+        username, // optional für Gäste
         lessonId: lesson._id,
         courseId: lesson.courseId,
         type: lesson.type,
@@ -404,11 +411,10 @@ export default function LessonPage() {
     if (total === 0) return;
     if (textAnswerSolved.size === total && !completedLessons.includes(lesson._id)) {
       const username = session?.user?.username;
-      if (!username) return;
       (async () => {
         try {
           await finalizeLesson({
-            username,
+            username, // optional für Gäste
             lessonId: lesson._id,
             courseId: lesson.courseId,
             type: lesson.type,

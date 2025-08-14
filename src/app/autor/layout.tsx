@@ -12,7 +12,7 @@ export default async function AutorLayout({ children }: { children: ReactNode })
     <div className="min-h-screen flex flex-col">
       <div className="bg-gray-50 border-b">
         <div className="max-w-6xl mx-auto px-4 py-2 text-sm">
-          <a href="/dashboard" className="text-blue-600 hover:underline">← Zurück zum Dashboard</a>
+          <a href="/dashboard" className="text-blue-600 hover:underline">← Zurück zur Startseite</a>
         </div>
       </div>
       <div className="flex-1">

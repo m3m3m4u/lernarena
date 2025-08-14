@@ -8,6 +8,10 @@ export default function UebenPage() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isGuest, setIsGuest] = useState(false);
+  useEffect(()=>{
+    try { const p = new URLSearchParams(window.location.search); setIsGuest(p.get('guest')==='1' || localStorage.getItem('guest:active')==='1'); } catch {}
+  },[]);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -29,6 +33,11 @@ export default function UebenPage() {
         </div>
         <button onClick={load} className="px-3 py-1 text-sm border rounded bg-white hover:bg-gray-50">🔄 Aktualisieren</button>
       </div>
+      {isGuest && (
+        <div className="mb-4 text-xs text-yellow-800 bg-yellow-50 border border-yellow-300 rounded p-2">
+          Gastmodus aktiv: Fortschritte werden nur lokal im Browser gespeichert.
+        </div>
+      )}
       {error && <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 mb-4">{error}</div>}
       {loading ? <div className="text-gray-500">Lade…</div> : (
         exercises.length === 0 ? <div className="text-gray-500 text-sm">Noch keine Übungen vorhanden.</div> : (
@@ -49,7 +58,7 @@ export default function UebenPage() {
         )
       )}
       <div className="mt-10">
-        <a href="/dashboard" className="text-blue-600 hover:underline text-sm">← Zurück zum Dashboard</a>
+  <a href="/dashboard" className="text-blue-600 hover:underline text-sm">← Zurück zur Startseite</a>
       </div>
     </main>
   );

@@ -8,14 +8,15 @@ import { useSession } from 'next-auth/react';
 export default function GlobalHeader(){
   const pathname = usePathname();
   const { data: session } = useSession();
-  const username = (session?.user as any)?.username || session?.user?.name || session?.user?.email || 'Gast';
-  const role = (session?.user as any)?.role || 'anon';
+  const isGuest = (session?.user as any)?.role === 'guest' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('guest') === '1');
+  const username = isGuest ? 'Gast' : ((session?.user as any)?.username || session?.user?.name || session?.user?.email || 'Gast');
+  const role = isGuest ? 'guest' : ((session?.user as any)?.role || 'anon');
 
   // Links kontextabhängig
   const leftLinks = [
-    { href: '/lernen', label: 'Lernen' },
-    { href: '/ueben', label: 'Üben' },
-    { href: '/dashboard', label: 'Dashboard' },
+    { href: '/lernen', label: 'Kurse' },
+    { href: '/ueben', label: 'Übungen' },
+    { href: '/dashboard', label: 'Startseite' },
   ];
   const teacherExtras = [
     { href: '/teacher', label: 'Lehrer' },
@@ -43,6 +44,9 @@ export default function GlobalHeader(){
           <span className="text-gray-600">Eingeloggt als</span>
           <span className="px-2 py-1 bg-gray-100 rounded font-mono">{String(username)}</span>
           <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded uppercase text-xs tracking-wide">{String(role)}</span>
+          {isGuest && (
+            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs" title="Gastmodus: Daten werden nur lokal gespeichert">Nur lokal</span>
+          )}
           {session ? (
             <button onClick={()=>signOut()} className="ml-2 px-2 py-1 border rounded hover:bg-gray-50">Logout</button>
           ) : (

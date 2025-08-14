@@ -1,7 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from 'next-auth/react';
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import CourseContextSwitcher from '@/components/CourseContextSwitcher';
 
 interface LessonDoc {
   _id?: string;
@@ -27,6 +28,9 @@ export default function KursAnsichtPage() {
   const params = useParams();
   const courseId = params.courseId as string;
   const { data: session } = useSession();
+  const search = useSearchParams();
+  const [isGuest, setIsGuest] = useState(false);
+  useEffect(()=>{ try{ setIsGuest((search?.get('guest')==='1') || (typeof window!=='undefined' && localStorage.getItem('guest:active')==='1')); } catch{ setIsGuest(false); } },[search]);
   
   const [course, setCourse] = useState<CourseDoc | null>(null);
   const [lessons, setLessons] = useState<LessonDoc[]>([]);
@@ -183,11 +187,16 @@ export default function KursAnsichtPage() {
 
   return (
     <main className="max-w-6xl mx-auto mt-10 p-6">
+  <CourseContextSwitcher currentCourseId={course._id} currentCourseTitle={course.title} />
       {/* Navigation */}
       <div className="mb-6">
         <a href="/lernen" className="text-blue-600 hover:underline">← Zurück zur Kursübersicht</a>
       </div>
 
+      {/* Gast Hinweis */}
+      {isGuest && (
+        <div className="mb-4 text-xs text-yellow-800 bg-yellow-50 border border-yellow-300 rounded p-2">Gastmodus aktiv: Fortschritte werden nur lokal im Browser gespeichert.</div>
+      )}
       {/* Kurs Header */}
       <div className="bg-white border rounded p-6 mb-6">
         <h1 className="text-3xl font-bold mb-4">{course.title}</h1>
