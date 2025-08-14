@@ -84,6 +84,8 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   const planeMaskReadyRef = useRef(false);
   const bgImgRef = useRef<HTMLImageElement | null>(null);
   const bgReadyRef = useRef(false);
+  // Touch/Swipe
+  const touchStartRef = useRef<{x:number;y:number;time:number}|null>(null);
 
   // Frage-Reihenfolge
   const questionOrderRef = useRef<number[]>([]);
@@ -453,7 +455,18 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     }
   },[displayWidth, isFullscreen]);
   return (
-    <div ref={wrapperRef} className={isFullscreen ? 'w-screen h-screen bg-black relative overflow-hidden' : 'w-full py-4'}>
+    <div
+      ref={wrapperRef}
+      className={isFullscreen ? 'w-screen h-screen bg-black relative overflow-hidden' : 'w-full py-4'}
+      onTouchStart={(e)=>{ const t=e.touches[0]; touchStartRef.current={ x:t.clientX, y:t.clientY, time: performance.now() }; }}
+      onTouchEnd={(e)=>{ const s=touchStartRef.current; if(!s) return; const t=(e.changedTouches&&e.changedTouches[0])? e.changedTouches[0] : (e.touches[0]||null); if(!t){ touchStartRef.current=null; return; } const dx=t.clientX-s.x; const dy=t.clientY-s.y; const adx=Math.abs(dx), ady=Math.abs(dy); if(ady>36 && ady>adx){ if(dy<0){ // nach oben wischen
+            keysRef.current.ArrowUp = true; keysRef.current.ArrowDown = false; setTimeout(()=>{ keysRef.current.ArrowUp=false; }, 140);
+          } else { // nach unten wischen
+            keysRef.current.ArrowDown = true; keysRef.current.ArrowUp = false; setTimeout(()=>{ keysRef.current.ArrowDown=false; }, 140);
+          } }
+          touchStartRef.current=null; }}
+      style={{touchAction:'none'}}
+    >
       <div className={isFullscreen ? 'relative w-full h-full' : 'mx-auto w-full'} style={ isFullscreen ? {width:'100%', height:'100%'} : {width:'100%'} }>
         {isFullscreen && (
           <div className="absolute top-0 left-0 w-full h-[160px] bg-black/90 backdrop-blur-sm flex items-center gap-6 px-6 z-20">

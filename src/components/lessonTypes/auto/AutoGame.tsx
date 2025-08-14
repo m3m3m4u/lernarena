@@ -9,6 +9,8 @@ interface Props { lesson: Lesson; courseId: string; completedLessons: string[]; 
 
 // Canvas Logik Konstanten – quadratisch ~500x500 laut Anforderung
 const LOGICAL_W = 500; const LOGICAL_H = 500; // Square
+// Anzeigegröße außerhalb Vollbild etwas größer darstellen
+const NON_FS_CANVAS_PX = 560;
 const LANES = 4; const ROAD_RATIO = 0.8; // Straße 400px breit bei 500 Canvas
 const ROAD_WIDTH = LOGICAL_W * ROAD_RATIO; const LANE_WIDTH = ROAD_WIDTH / LANES; const LANE_START_X = (LOGICAL_W - ROAD_WIDTH) / 2; // zentriert
 const MAX_LIVES = 3; const DEFAULT_TARGET_SCORE = 12;
@@ -30,6 +32,8 @@ const VERSION = '0.2';
 export default function AutoGame({ lesson, courseId, completedLessons, setCompletedLessons }:Props){
   const canvasRef = useRef<HTMLCanvasElement|null>(null);
   const containerRef = useRef<HTMLDivElement|null>(null); // Gesamtcontainer für Vollbild
+  const rowRef = useRef<HTMLDivElement|null>(null); // Zeilen-Container außerhalb Vollbild
+  const sidePanelRef = useRef<HTMLDivElement|null>(null);
   const { data: session } = useSession();
 
   // Game State
@@ -48,6 +52,8 @@ export default function AutoGame({ lesson, courseId, completedLessons, setComple
   const [fsPanelWidth,setFsPanelWidth] = useState(320); // feste Panelbreite im Vollbild (stabil)
   const scaleRef = useRef(1); // aktuelle Zeichenskalierung relativ zu Logikgröße
   const carImgRef = useRef<HTMLImageElement|null>(null);
+  // Touch/Swipe
+  const touchStartRef = useRef<{x:number;y:number;time:number}|null>(null);
 
   // Dynamic lesson config
   const blocks = buildQuestionBlocks(lesson);
@@ -172,10 +178,37 @@ export default function AutoGame({ lesson, courseId, completedLessons, setComple
     let resizeRaf:number|undefined; let lastW=window.innerWidth; let lastH=window.innerHeight;
     function calc(w:number,h:number){
       const padding=48, gapPx=32; const availW = w - fsPanelWidth - padding - gapPx; const availH = h - padding; const size=Math.min(availW,availH); setDynamicSize(prev=> Math.max(420, Math.min(size,1000))); }
-    function fullRecalc(){ if(isFullscreen){ calc(window.innerWidth, window.innerHeight);} else { setDynamicSize(LOGICAL_W);} }
+  function fullRecalc(){ if(isFullscreen){ calc(window.innerWidth, window.innerHeight);} else { setDynamicSize(NON_FS_CANVAS_PX);} }
     function onResize(){ if(!isFullscreen) return; const w=window.innerWidth,h=window.innerHeight; if(Math.abs(w-lastW)>5|| Math.abs(h-lastH)>5){ lastW=w; lastH=h; if(resizeRaf) cancelAnimationFrame(resizeRaf); resizeRaf=requestAnimationFrame(fullRecalc);} }
     fullRecalc(); window.addEventListener('resize',onResize); return ()=>{ window.removeEventListener('resize',onResize); if(resizeRaf) cancelAnimationFrame(resizeRaf); };
   },[isFullscreen, fsPanelWidth]);
+
+  // Nicht-Vollbild: Canvas dynamisch anhand verfügbarer Breite/Höhe im Row-Container anpassen
+  useEffect(()=>{
+    if(isFullscreen) return;
+  const measure = ()=>{
+      try{
+        const row = rowRef.current; const panel = sidePanelRef.current; if(!row){ setDynamicSize(NON_FS_CANVAS_PX); return; }
+        const rowW = row.clientWidth||0; const panelW = panel? panel.clientWidth: 0;
+        const gapPx = (window.innerWidth >= 1024)? 24: 0;
+    const availW = Math.max(320, rowW - panelW - gapPx);
+    const rowRect = row.getBoundingClientRect();
+    const bottomPadding = 24;
+    const availH = Math.max(320, window.innerHeight - rowRect.top - bottomPadding);
+        const target = Math.min(availW, availH);
+    const clamped = Math.max(540, Math.min(target, 800));
+        setDynamicSize(clamped);
+      }catch{}
+    };
+    const ro = new ResizeObserver(()=>{ requestAnimationFrame(measure); });
+    if(rowRef.current) ro.observe(rowRef.current);
+    if(sidePanelRef.current) ro.observe(sidePanelRef.current);
+    const onResize = ()=> requestAnimationFrame(measure);
+    window.addEventListener('resize', onResize);
+    // Initial call
+    requestAnimationFrame(measure);
+    return ()=>{ try{ ro.disconnect(); }catch{} window.removeEventListener('resize', onResize); };
+  },[isFullscreen]);
 
   // Panelbreite im Vollbild nochmals ~30% breiter machen
   useEffect(()=>{ if(isFullscreen){ const vw=window.innerWidth; const fixed = Math.min(800, Math.max(480, Math.round(vw*0.44))); setFsPanelWidth(fixed); } },[isFullscreen]);
@@ -321,10 +354,15 @@ export default function AutoGame({ lesson, courseId, completedLessons, setComple
 
   return (
   <div ref={containerRef} className={"w-full flex justify-center " + (isFullscreen? 'fixed inset-0 z-50 bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800 p-6 overflow-hidden':'') }>
-      <div className={"w-full max-w-6xl flex flex-col lg:flex-row gap-6 " + (isFullscreen? 'max-w-none h-full flex-row items-center':'items-start')} style={isFullscreen? {alignItems:'center'}:undefined}>
+  <div ref={rowRef} className={"w-full max-w-6xl flex flex-col lg:flex-row gap-6 " + (isFullscreen? 'max-w-none h-full flex-row items-center':'items-start')} style={isFullscreen? {alignItems:'center'}:undefined}>
         {/* Canvas Bereich */}
-        <div className={"relative mx-auto lg:mx-0 transition-all flex " + (isFullscreen? 'flex-1 justify-center':'')} style={{width:isFullscreen? 'auto':'100%', maxWidth:isFullscreen? 'none':LOGICAL_W}}>
+  <div className={"relative mx-auto lg:mx-0 transition-all flex " + (isFullscreen? 'flex-1 justify-center':'')} style={{width:isFullscreen? 'auto': dynamicSize, maxWidth:isFullscreen? 'none': dynamicSize}}>
           <div className="relative" style={{width:dynamicSize, height:dynamicSize}}>
+            <div
+              onTouchStart={(e)=>{ const t=e.touches[0]; touchStartRef.current={ x:t.clientX, y:t.clientY, time: performance.now() }; }}
+              onTouchEnd={(e)=>{ const s=touchStartRef.current; if(!s) return; const t=(e.changedTouches&&e.changedTouches[0])? e.changedTouches[0] : (e.touches[0]||null); if(!t) { touchStartRef.current=null; return;} const dx=t.clientX - s.x; const dy=t.clientY - s.y; const adx=Math.abs(dx), ady=Math.abs(dy); if(adx>40 && adx>ady){ if(dx>0) { desiredLaneRef.current = Math.min(LANES-1, desiredLaneRef.current+1); } else { desiredLaneRef.current = Math.max(0, desiredLaneRef.current-1); } } touchStartRef.current=null; }}
+              style={{width:dynamicSize, height:dynamicSize, position:'absolute', inset:0 as any, touchAction:'none'}}
+            />
             <canvas ref={canvasRef} width={LOGICAL_W} height={LOGICAL_H} className={"border rounded shadow " + (isFullscreen? 'bg-neutral-900':'bg-white')} style={{width:dynamicSize, height:dynamicSize}} />
             {running && !gameOver && !finished && (
               <>
@@ -365,7 +403,7 @@ export default function AutoGame({ lesson, courseId, completedLessons, setComple
           {/* Steuerungshinweis entfernt laut Anforderung */}
         </div>
         {/* Seitenpanel */}
-        <div className={"flex-shrink-0 flex flex-col gap-4 z-10 transition-all " + (isFullscreen? '':'w-full lg:w-80')} style={isFullscreen? {width:fsPanelWidth, alignSelf:'center'}:{}}>
+  <div ref={sidePanelRef} className={"flex-shrink-0 flex flex-col gap-4 z-10 transition-all " + (isFullscreen? '':'w-full lg:w-96')} style={isFullscreen? {width:fsPanelWidth, alignSelf:'center'}:{}}>
           <div className={"border rounded shadow-sm flex flex-col items-center text-center " + (isFullscreen? 'bg-neutral-800/80 backdrop-blur text-neutral-100 border-neutral-700 px-8 py-8 gap-7':'bg-white text-neutral-800 p-4 gap-5') } style={isFullscreen? {maxWidth:fsPanelWidth, margin:'0 auto'}:undefined}>
             <div className="space-y-4 w-full">
               <div className={"uppercase tracking-[0.18em] font-semibold opacity-80 " + (isFullscreen? 'text-[11px]':'text-xs text-gray-500')}>FRAGE</div>

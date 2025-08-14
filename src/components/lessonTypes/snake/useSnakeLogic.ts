@@ -79,11 +79,19 @@ export function useSnakeLogic({ lesson, courseId, completedLessons, setCompleted
 
   const restart = useCallback(()=>{ const startBody=[{x:5,y:8}]; setSnake(startBody); setDir({x:1,y:0}); setScore(0); setTickMs(initialSpeed); setRunning(false); setFinished(false); setGameOver(false); lastScorePostedRef.current=0; questionIdRef.current=0; lastScoredQuestionIdRef.current=-1; requestNewQuestionRef.current=false; if(blocks.length){ const nq=pickNextQuestion(); if(nq){ setCurrentQuestion(nq); placeAnswerFoods(nq, startBody);} } else { placeFood(startBody); } },[blocks.length, initialSpeed, pickNextQuestion, placeAnswerFoods, placeFood]);
 
+  const setDirection = useCallback((d:'up'|'down'|'left'|'right')=>{
+    if(!running || finished || gameOver) return;
+    if(d==='up' && dirRef.current.y!==1) setDir({x:0,y:-1});
+    else if(d==='down' && dirRef.current.y!==-1) setDir({x:0,y:1});
+    else if(d==='left' && dirRef.current.x!==1) setDir({x:-1,y:0});
+    else if(d==='right' && dirRef.current.x!==-1) setDir({x:1,y:0});
+  },[running, finished, gameOver]);
+
   return {
     // state
     snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking,
     // actions
-    setShowHelp, setRunning, restart,
+    setShowHelp, setRunning, restart, setDirection,
     // meta
     blocksLength: blocks.length,
   };

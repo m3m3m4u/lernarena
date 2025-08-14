@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Lesson } from './types';
 import { CELL, COLS, ROWS } from './snake/constants';
 import { useSnakeRendering } from './snake/useSnakeRendering';
@@ -14,6 +14,10 @@ interface Props { lesson: Lesson; courseId: string; completedLessons: string[]; 
 
 export default function SnakeGame({ lesson, courseId, completedLessons, setCompletedLessons }: Props){
   const [variant, setVariant] = useState<'snake'|'plane'|'space'|'pacman'|'auto'>('snake');
+  const wrapperRef = useRef<HTMLDivElement|null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [fsMaxPx, setFsMaxPx] = useState<number | null>(null);
+  const touchStartRef = useRef<{x:number;y:number;time:number}|null>(null);
   // Debug Hotkeys: 1..5 oder A für Auto (hilft falls Button gecached fehlt)
   useEffect(()=>{
     const handler = (e:KeyboardEvent)=>{
@@ -22,13 +26,60 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
       if(e.key==='3') setVariant('space');
       if(e.key==='4') setVariant('pacman');
       if(e.key==='5' || e.key.toLowerCase()==='a') setVariant('auto');
+      if(e.key.toLowerCase()==='f'){
+        if(document.fullscreenElement){ exitFullscreen(); } else { enterFullscreen(); }
+      }
     };
     window.addEventListener('keydown', handler);
     return ()=> window.removeEventListener('keydown', handler);
   },[]);
   const { data: session } = useSession();
-  const { snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking, setShowHelp, setRunning, restart, blocksLength } = useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername: session?.user?.username });
+  const { snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking, setShowHelp, setRunning, restart, blocksLength, setDirection } = useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername: session?.user?.username });
   const canvasRef = useSnakeRendering({ snake, foods, food, blocksLength, score, finished, targetScore });
+
+  // Fullscreen API helpers
+  const recalcFsSize = (fs: boolean = isFullscreen)=>{
+    try {
+      const innerW = window.innerWidth;
+      const innerH = window.innerHeight;
+      const wrapperPadding = 24; // p-3 => 12px * 2
+      const colGap = 24; // gap-6
+      const isRow = innerW >= 1024; // lg-Breakpoint
+      const panelW = isRow ? (fs ? 420 : 320) : 0; // lg:w-80 normal, Vollbild ~420px
+      const availW = innerW - wrapperPadding*2 - panelW - (isRow ? colGap : 0);
+      const availH = innerH - wrapperPadding*2;
+      const size = Math.max(260, Math.min(availW, availH));
+      setFsMaxPx(size);
+    } catch {}
+  };
+
+  const enterFullscreen = async ()=>{
+    const el = wrapperRef.current; if(!el) return;
+    try {
+      if(el.requestFullscreen){ await el.requestFullscreen(); }
+      // Safari prefixes werden hier bewusst weggelassen, Next-Ziel sind moderne Browser
+      setIsFullscreen(true);
+  recalcFsSize(true);
+    } catch {}
+  };
+  const exitFullscreen = async ()=>{
+    try {
+      if(document.fullscreenElement){ await document.exitFullscreen(); }
+      setIsFullscreen(false);
+    } catch {}
+  };
+  useEffect(()=>{
+  const onChange = ()=> { const fs = !!document.fullscreenElement; setIsFullscreen(fs); if(fs){ recalcFsSize(true); } };
+    document.addEventListener('fullscreenchange', onChange);
+    return ()=> document.removeEventListener('fullscreenchange', onChange);
+  },[]);
+  useEffect(()=>{
+    if(!isFullscreen) return;
+    recalcFsSize();
+  const onResize = ()=> recalcFsSize(true);
+    window.addEventListener('resize', onResize);
+    return ()=> window.removeEventListener('resize', onResize);
+  },[isFullscreen]);
 
   if(variant === 'plane'){
     return (
@@ -99,8 +150,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
         <button onClick={()=> setVariant('pacman')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">👻 Pacman</button>
         <button onClick={()=> setVariant('auto')} className="px-5 py-2 text-sm rounded border bg-white shadow-sm hover:bg-gray-50">🚗 Auto</button>
       </div>
-      <div className="w-full flex flex-col lg:flex-row gap-6">
-        <div className="lg:w-64 flex-shrink-0 bg-white border rounded p-4 space-y-4 h-fit min-h-[420px]">
+      <div
+        ref={wrapperRef}
+        className={"w-full flex flex-col lg:flex-row gap-6 " + (isFullscreen ? "border-2 border-gray-300 rounded-xl p-3 bg-white" : "")}
+        onDoubleClick={()=>{ if(document.fullscreenElement){ exitFullscreen(); } else { enterFullscreen(); } }}
+      >
+  <div className={(isFullscreen ? "lg:w-[420px] p-5 text-[0.95rem]" : "lg:w-80 p-4") + " flex-shrink-0 bg-white border rounded space-y-4 h-fit min-h-[420px]"}>
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold">🐍 Snake Quiz</h2>
           </div>
@@ -109,9 +164,14 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
             <div><span className="font-medium">Status:</span> {finished ? 'Abgeschlossen' : (running ? 'Läuft' : 'Pausiert')}</div>
           </div>
           {!(finished || gameOver) && (
-            <div className="flex gap-2 text-xs">
+            <div className="flex flex-wrap gap-2 text-xs">
               <button onClick={()=> setRunning(r=>!r)} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white">{running? 'Pause':'Start'}</button>
               <button onClick={()=> setShowHelp(h=>!h)} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white">{showHelp? 'Hilfe ausblenden':'Hilfe'}</button>
+              {!isFullscreen ? (
+                <button onClick={enterFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white">Vollbild</button>
+              ) : (
+                <button onClick={exitFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white">Vollbild beenden</button>
+              )}
             </div>
           )}
           {blocksLength>0 && currentQuestion && !(finished || gameOver) && (
@@ -136,14 +196,52 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
               Steuerung: Pfeiltasten oder Buttons. Triff das Feld der richtigen Antwortfarbe. Falsche Antwort oder Selbstkollision beendet das Spiel.
             </div>
           )}
+          {/* Steuerungs-Buttons */}
+          <div className="pt-3 border-t mt-2">
+            <div className="text-xs text-gray-500 mb-2">Steuerung</div>
+            <div className="grid grid-cols-3 gap-3 w-60 select-none">
+              <div />
+              <button onClick={()=> setDirection('up')} disabled={!running || finished || gameOver} className="px-4 py-3 rounded-md border bg-gray-50 hover:bg-white disabled:opacity-50 text-sm font-medium">↑</button>
+              <div />
+              <button onClick={()=> setDirection('left')} disabled={!running || finished || gameOver} className="px-4 py-3 rounded-md border bg-gray-50 hover:bg-white disabled:opacity-50 text-sm font-medium">←</button>
+              <button onClick={()=> setRunning(r=>!r)} className="px-4 py-3 rounded-md border bg-gray-50 hover:bg-white text-sm font-semibold whitespace-nowrap">{running? 'Pause':'Start'}</button>
+              <button onClick={()=> setDirection('right')} disabled={!running || finished || gameOver} className="px-4 py-3 rounded-md border bg-gray-50 hover:bg-white disabled:opacity-50 text-sm font-medium">→</button>
+              <div />
+              <button onClick={()=> setDirection('down')} disabled={!running || finished || gameOver} className="px-4 py-3 rounded-md border bg-gray-50 hover:bg-white disabled:opacity-50 text-sm font-medium">↓</button>
+              <div />
+            </div>
+          </div>
         </div>
         <div className="flex-1 flex justify-center">
-          <div className="inline-block relative">
-            <canvas ref={canvasRef} width={COLS*CELL} height={ROWS*CELL} className="border rounded bg-white block" style={{aspectRatio:'1/1', width:'100%', maxWidth:COLS*CELL}} />
+          <div
+            className="inline-block relative w-full"
+            onTouchStart={(e)=>{ const t=e.touches[0]; touchStartRef.current = { x:t.clientX, y:t.clientY, time: performance.now() }; }}
+            onTouchEnd={(e)=>{ const s=touchStartRef.current; if(!s) return; const t=(e.changedTouches&&e.changedTouches[0])? e.changedTouches[0] : (e.touches[0]||null); if(!t){ touchStartRef.current=null; return;} const dx=t.clientX - s.x; const dy=t.clientY - s.y; const adx=Math.abs(dx), ady=Math.abs(dy); const TH=32; if(running && !finished && !gameOver){ if(adx>TH || ady>TH){ if(adx>ady){ if(dx>0) setDirection('right'); else setDirection('left'); } else { if(dy>0) setDirection('down'); else setDirection('up'); } } } touchStartRef.current=null; }}
+            style={{touchAction:'none'}}
+          >
+            <canvas
+              ref={canvasRef}
+              width={COLS*CELL}
+              height={ROWS*CELL}
+              className="border rounded bg-white block mx-auto"
+              style={{
+                aspectRatio:'1/1',
+                width:'100%',
+                maxWidth: isFullscreen ? (fsMaxPx ?? '100%') : COLS*CELL,
+                maxHeight: isFullscreen ? (fsMaxPx ?? undefined) : undefined,
+              }}
+            />
             {!running && !finished && !gameOver && score===0 && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 backdrop-blur-sm text-center p-4">
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 backdrop-blur-sm text-center p-4 gap-2">
                 <button onClick={()=> setRunning(true)} className="px-6 py-3 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md text-sm">Start (Leertaste)</button>
-                {blocksLength>0 && <div className="mt-3 text-[11px] text-gray-600 max-w-[260px]">Steuere die Schlange zur Farbe der richtigen Antwort. Space oder Button startet.</div>}
+                <div className="flex gap-2">
+                  {!isFullscreen ? (
+                    <button onClick={enterFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white text-xs">Vollbild</button>
+                  ) : (
+                    <button onClick={exitFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white text-xs">Vollbild beenden</button>
+                  )}
+                </div>
+                {blocksLength>0 && <div className="mt-1 text-[11px] text-gray-600 max-w-[260px]">Steuere die Schlange zur Farbe der richtigen Antwort. Space oder Button startet.</div>}
               </div>
             )}
             {finished && score >= targetScore && (
