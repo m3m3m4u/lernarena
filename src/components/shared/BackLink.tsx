@@ -1,5 +1,5 @@
 "use client";
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import React from 'react';
 
 interface BackLinkProps {
@@ -16,9 +16,13 @@ interface BackLinkProps {
  */
 export default function BackLink({ lesson, returnToExercises, className = 'mb-6', buttonClassName = 'text-blue-600 hover:underline' }: BackLinkProps) {
   const router = useRouter();
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
   if (!lesson) return null;
   const goExercises = returnToExercises || lesson.courseId === 'exercise-pool';
-  const target = goExercises ? '/autor?tab=uebungen' : `/autor/kurs/${lesson.courseId}`;
+  const target = inTeacher
+    ? (goExercises ? '/teacher' : `/teacher/kurs/${lesson.courseId}`)
+    : (goExercises ? '/autor?tab=uebungen' : `/autor/kurs/${lesson.courseId}`);
   const label = goExercises ? 'zu den Übungen' : 'zum Kurs';
   return (
     <div className={className}>

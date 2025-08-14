@@ -1,6 +1,6 @@
 "use client";
 import { useState, Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 
 // Leichtgewichtige Form-State-Typen für diese Seite
 type LessonFormState = {
@@ -46,9 +46,12 @@ function extractYouTubeIdClient(input: string): string | null {
 }
 
 function NeueLektionPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const type = searchParams.get("type") || "text";
   const courseId = searchParams.get("courseId");
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
   
   // NEU: Kursnamen laden
   const [courseTitle, setCourseTitle] = useState<string | null>(null);
@@ -161,7 +164,7 @@ function NeueLektionPageInner() {
     }
     // Single-Choice wird im separaten Editor erstellt
     if (lessonData.type === "single-choice") {
-      window.location.href = `/autor/lektion/single-choice?courseId=${courseId}`;
+      router.push(inTeacher ? `/teacher/lektion/single-choice?courseId=${courseId}` : `/autor/lektion/single-choice?courseId=${courseId}`);
       return;
     }
     setIsSaving(true);
@@ -271,8 +274,8 @@ function NeueLektionPageInner() {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        alert(`✅ Lektion "${lessonData.title}" wurde erstellt!`);
-        window.location.href = `/autor/kurs/${courseId}`;
+  alert(`✅ Lektion "${lessonData.title}" wurde erstellt!`);
+  router.push(inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`);
       } else {
         alert(`❌ Fehler beim Erstellen: ${data.error || res.statusText}${data.details ? `\nDetails: ${data.details}` : ''}`);
       }
@@ -372,7 +375,7 @@ function NeueLektionPageInner() {
   return (
     <main className="max-w-4xl mx-auto mt-10 p-6">
       <div className="mb-6">
-        <a href={courseId ? `/autor/kurs/${courseId}` : "/autor"} className="text-blue-600 hover:underline">
+  <a href={courseId ? (inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`) : (inTeacher ? '/teacher' : '/autor')} className="text-blue-600 hover:underline">
           ← Zurück {courseId ? "zum Kurs" : "zum Autorentool"}
         </a>
         {courseId && (
@@ -451,7 +454,7 @@ function NeueLektionPageInner() {
 
         {/* Aktionen */}
         <div className="flex justify-between">
-          <a href={courseId ? `/autor/kurs/${courseId}` : "/autor"} className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+          <a href={courseId ? (inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`) : (inTeacher ? '/teacher' : '/autor')} className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
             Abbrechen
           </a>
           <div className="space-x-3">
@@ -476,9 +479,12 @@ function SingleChoiceForm({ lessonData: _lessonData, setLessonData: _setLessonDa
   // Direkt weiterleiten zum spezialisierten Editor
   const sp = useSearchParams();
   const cid = sp.get("courseId");
-  if (typeof window !== 'undefined') {
-    window.location.replace(`/autor/lektion/single-choice${cid ? `?courseId=${cid}` : ''}`);
-  }
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
+  const router = useRouter();
+  useEffect(()=>{
+    router.replace(inTeacher ? `/teacher/lektion/single-choice${cid ? `?courseId=${cid}` : ''}` : `/autor/lektion/single-choice${cid ? `?courseId=${cid}` : ''}`);
+  },[router, inTeacher, cid]);
   return <div className="text-sm text-gray-500">Weiterleitung zum Single Choice Editor…</div>;
 }
 

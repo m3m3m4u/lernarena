@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, Suspense, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 
 interface SCQuestion {
   question: string;
@@ -22,6 +22,8 @@ function SingleChoiceLektionPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const courseId = searchParams.get('courseId');
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
   
   const [title, setTitle] = useState('');
   const [courseName, setCourseName] = useState('');
@@ -134,7 +136,7 @@ Falsche Audio-Antwort`);
 
         if (result.success) {
           alert(`✅ Lektion "${title}" wurde erfolgreich erstellt!`);
-          router.push(`/autor/kurs/${courseId}`);
+          router.push(inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`);
         } else {
           alert(`❌ Fehler: ${result.error}`);
         }
@@ -155,7 +157,7 @@ Falsche Audio-Antwort`);
 
         if (result.success) {
           alert(`✅ Lektion "${title}" wurde erstellt!`);
-          router.push('/autor');
+          router.push(inTeacher ? '/teacher' : '/autor');
         } else {
           alert(`❌ Fehler: ${result.error}`);
         }

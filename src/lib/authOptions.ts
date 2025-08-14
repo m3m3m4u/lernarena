@@ -14,7 +14,25 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Passwort", type: "password" },
       },
       async authorize(credentials) {
-        await dbConnect();
+        const wantUser = String(credentials?.username || '');
+        const wantPass = String(credentials?.password || '');
+        const allowDemo = process.env.NODE_ENV !== 'production';
+        const hasDb = !!process.env.MONGODB_URI;
+        // Dev-Shortcut: Wenn keine DB konfiguriert ist, optional Demo-Login zulassen
+        if (!hasDb && allowDemo) {
+          if (wantUser === 'Kopernikus' && wantPass === '12345') {
+            return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as any;
+          }
+          throw new Error('Datenbank nicht konfiguriert (MONGODB_URI). Für Demo-Login: Benutzer "Kopernikus" / Passwort "12345" verwenden.');
+        }
+        try {
+          await dbConnect();
+        } catch (e:any) {
+          if (allowDemo && wantUser === 'Kopernikus' && wantPass === '12345') {
+            return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as any;
+          }
+          throw e;
+        }
         const user = await User.findOne({ username: credentials?.username });
         if (!user) { console.warn('[auth] user not found', credentials?.username); throw new Error("Benutzer nicht gefunden"); }
         if (!credentials?.password) throw new Error("Passwort fehlt");

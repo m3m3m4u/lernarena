@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-// import { getServerSession } from "next-auth/next"; // entfernt für jetzt
-// import { authOptions } from "@/lib/authOptions"; // entfernt
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/authOptions";
 import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
 import Lesson from "@/models/Lesson";
 import AuditLog from "@/models/AuditLog";
 import User from "@/models/User";
+import ClassCourseAccess from "@/models/ClassCourseAccess";
 
 const ALLOWED_CATEGORIES = [
   "Mathematik",
@@ -37,6 +38,22 @@ export async function GET(
       );
     }
 
+    // Zugriff für Lernende einschränken: nur wenn Kurs für ihre Klasse freigeschaltet ist
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role as string | undefined;
+    const username = (session?.user as any)?.username as string | undefined;
+    if (role === 'learner' && username) {
+      const me = await User.findOne({ username }, '_id class').lean();
+      const classId = me?.class ? String(me.class) : null;
+      if (!classId) {
+        return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      }
+      const access = await ClassCourseAccess.findOne({ class: classId, course: courseId }).lean();
+      if (!access) {
+        return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      }
+    }
+
     // Lade auch die Lektionen des Kurses
     const lessons = await Lesson.find({ courseId }).sort({ order: 1 });
     return NextResponse.json({
@@ -61,14 +78,13 @@ export async function PUT(
   context: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    // Auth vorübergehend deaktiviert
-    // const session = await getServerSession(authOptions);
-    // if (!session) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Nicht authentifiziert" },
-    //     { status: 401 }
-    //   );
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "Nicht authentifiziert" },
+        { status: 401 }
+      );
+    }
 
     await dbConnect();
   const { courseId } = await context.params;
@@ -76,6 +92,11 @@ export async function PUT(
 
     // Falls nur veröffentlicht werden soll, ohne andere Felder
     if (body.publish === true || body.isPublic === true || body.isPublished === true) {
+      // Nur Autor:in des Kurses oder Admin darf veröffentlichen
+      const role = (session.user as any).role;
+      if (role !== 'admin' && role !== 'author') {
+        return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
+      }
       const published = await Course.findByIdAndUpdate(
         courseId,
         { isPublished: true, updatedAt: new Date() },
@@ -98,6 +119,17 @@ export async function PUT(
 
     if (!ALLOWED_CATEGORIES.includes(body.category)) {
       return NextResponse.json({ success: false, error: 'Ungültige Kategorie' }, { status: 400 });
+    }
+
+    // Nur Autor:in des Kurses oder Admin darf Kursdaten ändern
+  const role = (session.user as any).role;
+  const username = (session.user as any).username;
+  const current = await Course.findById(courseId).lean();
+  if (!current) return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
+  // Bearbeiten erlaubt für author/admin ODER teacher, wenn Kurs-Autor er/sie selbst ist; Veröffentlichen wird separat oben geprüft
+  const isOwnerTeacher = (current as any).author === username && role === 'teacher';
+  if (!isOwnerTeacher && role !== 'admin' && role !== 'author') {
+      return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
     }
 
     const updatedCourse = await Course.findByIdAndUpdate(
@@ -161,17 +193,21 @@ export async function DELETE(
   context: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    // Temporär für Tests ohne Authentifizierung
-    // const session = await getServerSession(authOptions);
-    // if (!session) {
-    //   return NextResponse.json(
-    //     { success: false, error: "Nicht authentifiziert" },
-    //     { status: 401 }
-    //   );
-    // }
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "Nicht authentifiziert" },
+        { status: 401 }
+      );
+    }
 
   await dbConnect();
   const { courseId } = await context.params;
+  // Schutz: Nur Kurs-Autor:in oder Admin darf löschen
+  const role = (session.user as any).role;
+  if (role !== 'admin' && role !== 'author') {
+    return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
+  }
     
   // Lektions-IDs sammeln für Fortschrittsbereinigung
   const lessonIds = await Lesson.find({ courseId }).select('_id').lean();

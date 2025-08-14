@@ -1,7 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import type { ComponentType } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
+import { useSession } from 'next-auth/react';
+import { useToast } from '@/components/shared/ToastProvider';
 
 // Leichte Typen für Kurs und Lektionen in dieser Seite
 type Course = {
@@ -40,7 +42,13 @@ type LessonListItem = {
 export default function KursBearbeitenPage() {
   const params = useParams();
   const router = useRouter();
+  const pathname = usePathname();
+  const { data: session } = useSession();
   const courseId = params.courseId as string;
+  const inTeacherContext = pathname?.startsWith('/teacher/');
+  const role = (session?.user as any)?.role as string | undefined;
+  const homePath = inTeacherContext ? '/teacher/kurse?tab=freigaben' : '/autor';
+  const backLabel = inTeacherContext ? '← Zurück zu „Kurse zuordnen“' : '← Zurück zum Autorentool';
   
   const [course, setCourse] = useState<Course | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,19 +78,19 @@ export default function KursBearbeitenPage() {
           setCourse(data.course as Course);
         } else {
           console.error('Kurs nicht gefunden');
-          router.push('/autor');
+          router.push(homePath);
         }
       } else {
         console.error('Fehler beim Laden des Kurses');
-        router.push('/autor');
+        router.push(homePath);
       }
     } catch (error) {
       console.error("Fehler beim Laden des Kurses:", error);
-      router.push('/autor');
+      router.push(homePath);
     } finally {
       setLoading(false);
     }
-  }, [courseId, router]);
+  }, [courseId, router, homePath]);
 
   useEffect(() => {
     loadCourse();
@@ -132,7 +140,7 @@ export default function KursBearbeitenPage() {
   return (
     <main className="max-w-6xl mx-auto mt-10 p-6">
       <div className="mb-6">
-        <a href="/autor" className="text-blue-600 hover:underline">← Zurück zum Autorentool</a>
+  <a href={homePath} className="text-blue-600 hover:underline">{backLabel}</a>
       </div>
 
       {/* Kurs Header */}
@@ -151,12 +159,12 @@ export default function KursBearbeitenPage() {
           </div>
           <div className="flex gap-3">
             <button 
-              onClick={() => router.push(`/autor/kurs/${courseId}/einstellungen`)}
+              onClick={() => router.push(inTeacherContext ? `/teacher/kurs/${courseId}/einstellungen` : `/autor/kurs/${courseId}/einstellungen`)}
               className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
             >
               ⚙️ Einstellungen
             </button>
-            {!course?.isPublished && (
+            {!course?.isPublished && role!=='teacher' && (
               <button 
                 onClick={handlePublishCourse}
                 className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
@@ -222,6 +230,8 @@ export default function KursBearbeitenPage() {
 // Lektionen Übersicht Tab
 function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { courseId: string; onDelete: (id: string) => void; onLessonsCountChange: (count: number) => void; }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const inTeacherContext = pathname?.startsWith('/teacher/');
   const [courseLessons, setCourseLessons] = useState<LessonListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   // Vorschau-States lokal für diesen Tab
@@ -377,20 +387,22 @@ function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { cour
                 </div>
                 {!reorderMode && <div className="flex gap-2">
                   <button 
-                    onClick={() => router.push(`/autor/lektion/${lesson._id || lesson.id}`)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                  >
-                    ✏️ Bearbeiten
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setPreviewLesson(lesson);
-                      setShowPreview(true);
-                    }}
-                    className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
-                  >
-                    👁️ Vorschau
-                  </button>
+                      onClick={() => router.push(inTeacherContext ? `/teacher/lektion/${lesson._id || lesson.id}` : `/autor/lektion/${lesson._id || lesson.id}`)}
+                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                    >
+                      ✏️ Bearbeiten
+                    </button>
+                  {!inTeacherContext && (
+                    <button 
+                      onClick={() => {
+                        setPreviewLesson(lesson);
+                        setShowPreview(true);
+                      }}
+                      className="bg-gray-600 text-white px-3 py-1 rounded text-sm hover:bg-gray-700"
+                    >
+                      👁️ Vorschau
+                    </button>
+                  )}
                   <button 
                     onClick={() => onDelete(lesson._id || lesson.id || "")}
                     className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
@@ -425,7 +437,7 @@ function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { cour
               <h2 className="text-lg font-bold">Vorschau: {previewLesson.title}</h2>
               {(previewLesson as any)?.courseId === 'exercise-pool' && (
                 <button
-                  onClick={()=>{ setShowPreview(false); /* Zurück zur Übungen-Ansicht außerhalb dieses Kurs-Kontexts */ window.location.href = '/autor?tab=uebungen'; }}
+                  onClick={()=>{ setShowPreview(false); /* Zurück-Route kontextbewusst */ router.push(inTeacherContext ? '/teacher' : '/autor?tab=uebungen'); }}
                   className="text-blue-600 text-sm hover:underline"
                 >← Zurück zu den Übungen</button>
               )}
@@ -461,7 +473,7 @@ function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { cour
                       setShowPreview(false);
                       setTimeout(()=>{
                         if(newId){
-                          router.push(`/autor/lektion/${newId}`);
+                          router.push(inTeacherContext ? `/teacher/lektion/${newId}` : `/autor/lektion/${newId}`);
                         } else {
                           alert('Kopie erstellt (ID unbekannt) – bitte Seite aktualisieren.');
                         }
@@ -479,7 +491,7 @@ function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { cour
                 onClick={()=>{
                   if(!previewLesson) return;
                   setShowPreview(false);
-                  router.push(`/autor/lektion/${previewLesson._id || previewLesson.id}`);
+                  router.push(inTeacherContext ? `/teacher/lektion/${previewLesson._id || previewLesson.id}` : `/autor/lektion/${previewLesson._id || previewLesson.id}`);
                 }}
                 className="px-3 py-1 text-sm border rounded bg-green-600 text-white hover:bg-green-700"
               >✏️ Bearbeiten</button>
@@ -691,6 +703,8 @@ function LessonsOverviewTab({ courseId, onDelete, onLessonsCountChange }: { cour
 // Neue Lektion erstellen Tab
 function CreateLessonTab({ courseId, onLessonCreated: _onLessonCreated }: { courseId: string; onLessonCreated?: () => void; }) {
   void _onLessonCreated;
+  const pathname = usePathname();
+  const inTeacherContext = pathname?.startsWith('/teacher/');
   const templates = [
     { type: "single-choice", name: "📝 Single Choice Quiz", description: "Einfache Multiple-Choice Fragen erstellen" },
     { type: "multiple-choice", name: "❓❓ Multiple Choice", description: "Mehrere richtige Antworten" },
@@ -713,7 +727,10 @@ function CreateLessonTab({ courseId, onLessonCreated: _onLessonCreated }: { cour
         {templates.map(template => (
           <a
             key={template.type}
-            href={template.type === 'single-choice' ? `/autor/lektion/single-choice?courseId=${courseId}` : `/autor/lektion/neu?type=${template.type}&courseId=${courseId}`}
+            href={inTeacherContext
+              ? (template.type === 'single-choice' ? `/teacher/lektion/single-choice?courseId=${courseId}` : `/teacher/lektion/neu?type=${template.type}&courseId=${courseId}`)
+              : (template.type === 'single-choice' ? `/autor/lektion/single-choice?courseId=${courseId}` : `/autor/lektion/neu?type=${template.type}&courseId=${courseId}`)
+            }
             className="border rounded p-6 hover:bg-blue-50 hover:border-blue-300 transition-colors block"
           >
             <div className="text-3xl mb-3">{getLessonTypeIcon(template.type)}</div>
@@ -733,6 +750,7 @@ function ExistingLessonsTab({ courseId, onLessonAdded }: { courseId: string; onL
   const [showPreview, setShowPreview] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [addedLessons, setAddedLessons] = useState<string[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadGlobalLessons = async () => {
@@ -759,7 +777,9 @@ function ExistingLessonsTab({ courseId, onLessonAdded }: { courseId: string; onL
 
   const handleAddLesson = async (lesson: LessonListItem) => {
     if (!lesson._id) return;
-    if (!confirm(`Lektion "${lesson.title}" in diesen Kurs kopieren?`)) return;
+    // Confirm via toast-like UX
+    const ok = window.confirm(`Lektion "${lesson.title}" in diesen Kurs kopieren?`);
+    if (!ok) return;
     setIsAdding(true);
     try {
       const res = await fetch(`/api/kurs/${courseId}/lektionen`, {
@@ -771,11 +791,14 @@ function ExistingLessonsTab({ courseId, onLessonAdded }: { courseId: string; onL
       if (res.ok && data.success) {
         setAddedLessons(a => [...a, lesson._id as string]);
         if (onLessonAdded) onLessonAdded();
+        toast({ title: 'Lektion kopiert', message: `"${lesson.title}" wurde hinzugefügt.`, kind: 'success' });
       } else {
-        alert('Fehler: ' + (data.error || 'Unbekannt'));
+        const msg = `Fehler: ${data?.error || res.statusText || 'Unbekannt'}`;
+        console.error('Copy lesson failed', data);
+        toast({ title: 'Kopieren fehlgeschlagen', message: msg, kind: 'error' });
       }
     } catch {
-      alert('Netzwerkfehler beim Kopieren');
+      toast({ title: 'Netzwerkfehler', message: 'Beim Kopieren ist ein Netzwerkfehler aufgetreten.', kind: 'error' });
     } finally {
       setIsAdding(false);
     }

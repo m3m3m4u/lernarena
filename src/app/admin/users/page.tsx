@@ -139,7 +139,7 @@ export default function AdminUsersPage(){
                   <td className="py-1 px-2">{t.name}</td>
                   <td className="py-1 px-2">{t.email||'—'}</td>
                   <td className="py-1 px-2">
-                    <a href={`/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Teacher-Panel öffnen</a>
+                    <a href={`/admin/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Klassen verwalten</a>
                   </td>
                 </tr>
               ))}

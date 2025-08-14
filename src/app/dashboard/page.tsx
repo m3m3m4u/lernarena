@@ -51,13 +51,14 @@ export default function DashboardPage() {
         if(res.ok && d.success) setUnread(d.count||0); else setUnread(0);
       } catch { /* ignore */ }
     }
-    if(status==='authenticated'){
+    const r = (session?.user as any)?.role;
+    const allowed = r==='teacher' || (r==='learner' && (user as any)?.ownerTeacher);
+    if(status==='authenticated' && allowed){
       void loadUnread();
-      // Optionales leichtes Polling, damit Badge aktuell bleibt
       timer = setInterval(loadUnread, 30000);
     }
     return () => { if(timer) clearInterval(timer); };
-  }, [status]);
+  }, [status, (session?.user as any)?.role, (user as any)?.ownerTeacher]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -93,22 +94,22 @@ export default function DashboardPage() {
   {(['author','admin'] as string[]).includes((session?.user as any)?.role) && (
           <a href="/autor" className="bg-orange-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-orange-700 transition">🛠️ Autor</a>
         )}
-        {(['teacher','admin'] as string[]).includes((session?.user as any)?.role) && (
-          <a href="/teacher" className="bg-indigo-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-indigo-700 transition">👩‍🏫 Teacher</a>
+  {(session && (session?.user as any)?.role==='teacher') && (
+          <>
+            <a href="/teacher" className="bg-indigo-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-indigo-700 transition">👩‍🏫 Klasse verwalten</a>
+            <a href="/teacher/kurse" className="bg-indigo-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-indigo-700 transition">📚 Kurse zuordnen</a>
+          </>
         )}
   {(session?.user as any)?.role === 'admin' && (
           <a href="/admin/users" className="bg-red-600 text-white py-3 px-4 rounded text-center font-semibold hover:bg-red-700 transition">🔐 Admin</a>
         )}
-        {((session?.user as any)?.role==='teacher' || (session?.user as any)?.role==='admin' || (!!user && (session?.user as any)?.role==='learner')) && (
-          // Für Lernende nur anzeigen, wenn vom Teacher erstellt (ownerTeacher vorhanden)
-          ((session?.user as any)?.role!=='learner' || (user as any)?.ownerTeacher) ? (
-            <a href="/messages" className="relative bg-gray-700 text-white py-3 px-4 rounded text-center font-semibold hover:bg-gray-800 transition" title="Liste: Hintergrund zeigt deinen Lese-Status. Punkt: Orange = Empfänger noch nicht gelesen, Grün = Empfänger hat gelesen.">
-              💬 Nachrichten
-              {unread>0 && (
-                <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-5 text-center">{unread}</span>
-              )}
-            </a>
-          ) : null
+        {(((session?.user as any)?.role==='teacher') || (((session?.user as any)?.role==='learner') && (user as any)?.ownerTeacher)) && (
+          <a href="/messages" className="relative bg-gray-700 text-white py-3 px-4 rounded text-center font-semibold hover:bg-gray-800 transition" title="Liste: Hintergrund zeigt deinen Lese-Status. Punkt: Orange = Empfänger noch nicht gelesen, Grün = Empfänger hat gelesen.">
+            💬 Nachrichten
+            {unread>0 && (
+              <span className="absolute -top-2 -right-2 bg-orange-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-5 text-center">{unread}</span>
+            )}
+          </a>
         )}
       </div>
 

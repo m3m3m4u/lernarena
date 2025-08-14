@@ -132,7 +132,22 @@ export async function POST(req: NextRequest){
   const meId = (session?.user as any)?.id;
   if(!meId) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:401 });
   const body = await req.json().catch(()=>({}));
-  const { subject, body: text, recipientUser, recipientClass, parentMessage } = body as any;
+  const { subject, body: text, recipientUser, recipientClass, parentMessage, action, messageId } = body as any;
+  if(action==='purge'){
+    const meId = (session?.user as any)?.id;
+    if(!meId) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:401 });
+    if(!messageId) return NextResponse.json({ success:false, error:'messageId fehlt' }, { status:400 });
+    const msg = await Message.findById(messageId);
+    if(!msg) return NextResponse.json({ success:false, error:'Nachricht nicht gefunden' }, { status:404 });
+    msg.hiddenFor = msg.hiddenFor || [] as any;
+    const idx = (msg.hiddenFor as any[]).findIndex((u:any)=>String(u)===String(meId));
+    if(idx<0) (msg.hiddenFor as any[]).push(meId as any);
+    msg.purgedFor = msg.purgedFor || [] as any;
+    const pidx = (msg.purgedFor as any[]).findIndex((u:any)=>String(u)===String(meId));
+    if(pidx<0) (msg.purgedFor as any[]).push(meId as any);
+    await msg.save();
+    return NextResponse.json({ success:true });
+  }
   if(!subject || !text) return NextResponse.json({ success:false, error:'subject/body fehlt' }, { status:400 });
   // Falls parentMessage gesetzt, hole threadId des Elternteils
   let threadId: any = undefined;
@@ -219,23 +234,4 @@ export async function PUT(req: NextRequest){
   return NextResponse.json({ success:true });
 }
 
-// PURGE: Nachricht für den aktuellen Nutzer endgültig löschen
-export async function PURGE(req: NextRequest){
-  try{ await dbConnect(); } catch(e:any){ return NextResponse.json({ success:false, error:'DB '+(e?.message||e) }, { status:500 }); }
-  const session = await getServerSession(authOptions);
-  const meId = (session?.user as any)?.id;
-  if(!meId) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:401 });
-  const body = await req.json().catch(()=>({}));
-  const { messageId } = body as any;
-  if(!messageId) return NextResponse.json({ success:false, error:'messageId fehlt' }, { status:400 });
-  const msg = await Message.findById(messageId);
-  if(!msg) return NextResponse.json({ success:false, error:'Nachricht nicht gefunden' }, { status:404 });
-  msg.hiddenFor = msg.hiddenFor || [] as any;
-  const idx = (msg.hiddenFor as any[]).findIndex((u:any)=>String(u)===String(meId));
-  if(idx<0) (msg.hiddenFor as any[]).push(meId as any);
-  msg.purgedFor = msg.purgedFor || [] as any;
-  const pidx = (msg.purgedFor as any[]).findIndex((u:any)=>String(u)===String(meId));
-  if(pidx<0) (msg.purgedFor as any[]).push(meId as any);
-  await msg.save();
-  return NextResponse.json({ success:true });
-}
+// Hinweis: Endgültiges Löschen erfolgt jetzt über POST { action:'purge', messageId }

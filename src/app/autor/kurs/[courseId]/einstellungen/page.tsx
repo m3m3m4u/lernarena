@@ -1,8 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, use, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 // import { useRouter } from 'next/navigation'; // entfernt: ungenutzt
 import Link from 'next/link';
+import { usePathname, useParams } from 'next/navigation';
 
 interface CourseSettings {
   id: string;
@@ -13,9 +14,12 @@ interface CourseSettings {
   progressionMode: 'linear' | 'free';
 }
 
-export default function CourseSettingsPage({ params }: { params: Promise<{ courseId: string }> }) {
+export default function CourseSettingsPage() {
   // const router = useRouter(); // entfernt: ungenutzt
-  const resolvedParams = use(params);
+  const routeParams = useParams();
+  const courseId = (routeParams?.courseId as string) || '';
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
   const [course, setCourse] = useState<CourseSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -25,7 +29,7 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
   // neue Version: loadCourse via useCallback und als Dependency nutzen
   const loadCourse = useCallback(async () => {
     try {
-      const response = await fetch(`/api/kurs/${resolvedParams.courseId}`);
+      const response = await fetch(`/api/kurs/${courseId}`);
       const data = await response.json();
       
       if (data.success && data.course) {
@@ -46,7 +50,7 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
     } finally {
       setLoading(false);
     }
-  }, [resolvedParams.courseId]);
+  }, [courseId]);
 
   useEffect(() => {
     void loadCourse();
@@ -61,16 +65,20 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
 
     try {
       // Nutzung des spezifischen Settings PATCH für partielle Updates (inkl. progressionMode)
-      const response = await fetch(`/api/kurs/${resolvedParams.courseId}/settings`, {
+      const payload: any = {
+        title: course.name,
+        description: course.description,
+        category: course.category,
+        progressionMode: course.progressionMode
+      };
+      // Nur Autor/Admin darf publish ändern – Teacher sendet dieses Feld nicht
+      if (!inTeacher) {
+        payload.isPublished = course.isPublic;
+      }
+  const response = await fetch(`/api/kurs/${courseId}/settings`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: course.name,
-          description: course.description,
-          category: course.category, // optional falls du noch Kategorie hier erlauben willst – Backend ignoriert aktuell
-          isPublished: course.isPublic,
-          progressionMode: course.progressionMode
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -126,7 +134,7 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
           <div className="text-center py-8">
             <p className="text-red-600">Kurs nicht gefunden</p>
             <Link
-              href="/autor"
+              href={inTeacher ? '/teacher/kurse?tab=freigaben' : '/autor'}
               className="mt-4 inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Zurück zur Übersicht
@@ -148,7 +156,7 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
               <p className="text-gray-600 mt-2">Bearbeite die Eigenschaften deines Kurses</p>
             </div>
             <Link
-              href="/autor"
+              href={inTeacher ? '/teacher/kurse?tab=freigaben' : '/autor'}
               className="px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center gap-2"
             >
               ← Zurück zur Übersicht
@@ -261,11 +269,15 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
                   type="checkbox"
                   checked={course.isPublic}
                   onChange={(e) => handleInputChange('isPublic', e.target.checked)}
+                  disabled={inTeacher}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <span className="ml-2 text-sm text-gray-700">
                   Kurs öffentlich verfügbar machen
                 </span>
+                {inTeacher && (
+                  <span className="ml-3 text-xs text-gray-500">Nur Autor/Admin darf veröffentlichen</span>
+                )}
               </label>
             </div>
 
@@ -273,7 +285,7 @@ export default function CourseSettingsPage({ params }: { params: Promise<{ cours
             <div className="pt-4 border-t border-gray-200">
               <div className="flex justify-end gap-3">
                 <Link
-                  href="/autor"
+                  href={inTeacher ? '/teacher/kurse?tab=freigaben' : '/autor'}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
                   Abbrechen

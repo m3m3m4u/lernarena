@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, error: "Kurs nicht gefunden" }, { status: 404 });
       }
       courseCategory = course.category;
-      if (course.author !== userName && userRole !== 'author') {
+  if (course.author !== userName && userRole !== 'author' && userRole !== 'admin') {
         return NextResponse.json({ success: false, error: 'Keine Berechtigung für diesen Kurs' }, { status: 403 });
       }
     } else {
