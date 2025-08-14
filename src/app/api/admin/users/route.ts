@@ -5,13 +5,22 @@ import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
 
 // Liste + Erstellen von speziellen Accounts (teacher, author Freigabe)
-export async function GET(){
+export async function GET(request: Request){
   await dbConnect();
   const session = await getServerSession(authOptions);
   const role = (session?.user as any)?.role;
   if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+  const url = new URL(request.url);
+  const q = (url.searchParams.get('q') || '').trim().toLowerCase();
+  const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
+  const pageSize = Math.min(200, Math.max(1, parseInt(url.searchParams.get('pageSize') || '20', 10)));
   // Kopernikus wird im JWT zu admin eskaliert; falls DB noch 'author', korrigieren wir das einmalig
-  const usersRaw = await User.find({}, 'username name role email createdAt updatedAt').sort({ createdAt:-1 }).lean();
+  const usersRaw = await User
+    .find({}, 'username name role email ownerTeacher class createdAt updatedAt')
+    .populate('ownerTeacher', 'username name')
+    .populate('class', 'name')
+    .sort({ createdAt:-1 })
+    .lean();
   let corrected = false;
   for(const u of usersRaw){
     if(u.username === 'Kopernikus' && u.role !== 'admin'){
@@ -20,8 +29,29 @@ export async function GET(){
       corrected = true;
     }
   }
-  const users = usersRaw;
-  return NextResponse.json({ success:true, users });
+  // Suche anwenden (auch auf Klasse/Lehrperson) und Pagination
+  const matches = (u:any)=>{
+    if(!q) return true;
+    const hay = [u.username, u.name, u.email, u.class?.name, u.ownerTeacher?.username, u.ownerTeacher?.name]
+      .filter(Boolean)
+      .map((s:string)=>String(s).toLowerCase());
+    return hay.some((h:string)=>h.includes(q));
+  };
+  const filtered = usersRaw.filter(matches);
+  const total = filtered.length;
+  const paged = filtered.slice((page-1)*pageSize, page*pageSize);
+  // Flach mappen
+  const users = paged.map((u:any)=>({
+    username: u.username,
+    name: u.name,
+    role: u.role,
+    email: u.email,
+    createdAt: u.createdAt,
+    ownerTeacherUsername: u.ownerTeacher?.username,
+    ownerTeacherName: u.ownerTeacher?.name,
+    className: u.class?.name,
+  }));
+  return NextResponse.json({ success:true, users, total });
 }
 
 export async function POST(request: Request){

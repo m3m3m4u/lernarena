@@ -3,18 +3,20 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 
-interface UserRow { username:string; name?:string; role:string; email?:string; createdAt?:string; }
+interface UserRow { username:string; name?:string; role:string; email?:string; createdAt?:string; ownerTeacherUsername?:string; ownerTeacherName?:string; className?:string; }
 
 export default function AdminUsersPage(){
   const { data: session, status } = useSession();
   const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState({ username:'', name:'', password:'', email:'', role:'author' });
   const [updating, setUpdating] = useState<string|null>(null);
   const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
   const PAGE_SIZE = 20;
 
   useEffect(()=>{
@@ -28,9 +30,10 @@ export default function AdminUsersPage(){
   async function load(){
     setLoading(true); setError(null);
     try {
+      // Initial: vollständige Liste für die oberen Abschnitte (keine Filter/Pagination)
       const res = await fetch('/api/admin/users');
       const data = await res.json();
-      if(res.ok && data.success){ setUsers(data.users); }
+      if(res.ok && data.success){ setUsers(data.users); setTotal(data.total ?? data.users.length); }
       else setError(data.error||'Fehler');
     } catch { setError('Netzwerkfehler'); }
     setLoading(false);
@@ -82,10 +85,35 @@ export default function AdminUsersPage(){
     }
   }
 
+  // Obere Abschnitte: aus kompletter Users-Liste
   const pending = users.filter(u=>u.role==='pending-author');
   const pendingTeacher = users.filter(u=>u.role==='pending-teacher');
   const teachers = users.filter(u=>u.role==='teacher');
   const authors = users.filter(u=>u.role==='author');
+
+  // Untere Tabelle: serverseitig filtern/paginieren
+  const [tableRows, setTableRows] = useState<UserRow[]>([]);
+  useEffect(()=>{
+    let abort = false;
+    async function loadPaged(){
+      setLoading(true); setError(null);
+      try {
+        const params = new URLSearchParams();
+        if(query) params.set('q', query);
+        params.set('page', String(page));
+        params.set('pageSize', String(PAGE_SIZE));
+        const res = await fetch('/api/admin/users?'+params.toString());
+        const data = await res.json();
+        if(!abort){
+          if(res.ok && data.success){ setTableRows(data.users); setTotal(data.total); }
+          else setError(data.error||'Fehler');
+        }
+      } catch { if(!abort) setError('Netzwerkfehler'); }
+      if(!abort) setLoading(false);
+    }
+    if((session?.user as any)?.role==='admin') loadPaged();
+    return ()=>{ abort = true; };
+  }, [query, page, PAGE_SIZE, (session?.user as any)?.role]);
 
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-10">
@@ -186,6 +214,10 @@ export default function AdminUsersPage(){
 
       <section className="bg-white border rounded p-4">
         <h2 className="font-semibold mb-3">Alle Benutzer</h2>
+  <div className="flex items-center gap-2 mb-3 text-xs">
+          <input value={query} onChange={e=>{ setQuery(e.target.value); setPage(1); }} placeholder="Suche (User, Name, E-Mail, Klasse, Lehrperson)" className="border rounded px-2 py-1 w-full" />
+          {query && <button onClick={()=>setQuery('')} className="px-2 py-1 border rounded">Reset</button>}
+        </div>
         {loading ? <div className="text-xs text-gray-500">Lade…</div> : (
           <div className="overflow-x-auto">
             <table className="w-full text-[11px]">
@@ -193,16 +225,20 @@ export default function AdminUsersPage(){
                 <tr className="bg-gray-50 text-left">
                   <th className="py-1 px-2">User</th>
                   <th className="py-1 px-2">Name</th>
+                  <th className="py-1 px-2">Klasse</th>
+                  <th className="py-1 px-2">Lehrperson</th>
                   <th className="py-1 px-2">Rolle</th>
                   <th className="py-1 px-2">E-Mail</th>
                   <th className="py-1 px-2">Aktion</th>
                 </tr>
               </thead>
               <tbody>
-                {users.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE).map(u=> (
+                {tableRows.map(u=> (
                   <tr key={u.username} className="border-t">
                     <td className="py-1 px-2 font-medium">{u.username}</td>
                     <td className="py-1 px-2">{u.name||'—'}</td>
+                    <td className="py-1 px-2">{u.className||'—'}</td>
+                    <td className="py-1 px-2">{u.ownerTeacherName? `${u.ownerTeacherName} (${u.ownerTeacherUsername})` : (u.ownerTeacherUsername||'—')}</td>
                     <td className="py-1 px-2">{u.role}</td>
                     <td className="py-1 px-2">{u.email||'—'}</td>
                     <td className="py-1 px-2">
@@ -220,14 +256,14 @@ export default function AdminUsersPage(){
                     </td>
                   </tr>
                 ))}
-                {users.length===0 && <tr><td colSpan={5} className="py-2 text-gray-500">Keine Benutzer gefunden.</td></tr>}
+                {tableRows.length===0 && <tr><td colSpan={7} className="py-2 text-gray-500">Keine Benutzer gefunden.</td></tr>}
               </tbody>
             </table>
             <div className="flex justify-between items-center mt-2 text-[11px]">
-              <div>Seite {page} / {Math.max(1, Math.ceil(users.length / PAGE_SIZE))}</div>
+              <div>Seite {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}</div>
               <div className="flex gap-2">
                 <button disabled={page===1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="px-2 py-1 border rounded disabled:opacity-40">« Zurück</button>
-                <button disabled={page>=Math.ceil(users.length / PAGE_SIZE)} onClick={()=>setPage(p=>p+1)} className="px-2 py-1 border rounded disabled:opacity-40">Weiter »</button>
+                <button disabled={page>=Math.ceil(total / PAGE_SIZE)} onClick={()=>setPage(p=>p+1)} className="px-2 py-1 border rounded disabled:opacity-40">Weiter »</button>
               </div>
             </div>
           </div>

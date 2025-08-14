@@ -161,7 +161,7 @@ export default function KursAnsichtPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto mt-10 p-6 text-center">
+      <div className="max-w-6xl mx-auto mt-10 p-6 text-center">
         <div className="text-4xl mb-4">⏳</div>
         <p>Lade Kurs...</p>
       </div>
@@ -170,7 +170,7 @@ export default function KursAnsichtPage() {
 
   if (!course) {
     return (
-      <div className="max-w-4xl mx-auto mt-10 p-6 text-center">
+      <div className="max-w-6xl mx-auto mt-10 p-6 text-center">
         <div className="text-4xl mb-4">❌</div>
         <h1 className="text-2xl font-bold mb-4">Kurs nicht gefunden</h1>
         <p className="text-gray-600 mb-6">Der angeforderte Kurs konnte nicht geladen werden.</p>
@@ -182,7 +182,7 @@ export default function KursAnsichtPage() {
   }
 
   return (
-    <main className="max-w-4xl mx-auto mt-10 p-6">
+    <main className="max-w-6xl mx-auto mt-10 p-6">
       {/* Navigation */}
       <div className="mb-6">
         <a href="/lernen" className="text-blue-600 hover:underline">← Zurück zur Kursübersicht</a>
