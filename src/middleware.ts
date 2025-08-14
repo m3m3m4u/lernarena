@@ -48,8 +48,8 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
     // JWT Token (next-auth)
-    const token = await getToken({ req });
-    const role = (token as any)?.role;
+  const token = await getToken({ req });
+  const role = (token && typeof token === 'object' ? (token as Record<string, unknown>).role as string | undefined : undefined);
     if (role === 'author' || role === 'admin') {
       return NextResponse.next();
     }

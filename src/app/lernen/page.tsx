@@ -1,4 +1,5 @@
 "use client";
+import { Suspense } from 'react';
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -12,7 +13,7 @@ interface CourseItem {
 
 type ProgressMap = Record<string, { completed: number; inProgress: number }>;
 
-export default function LernenPage() {
+function LernenPageInner() {
   const [courses, setCourses] = useState<CourseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -282,5 +283,13 @@ export default function LernenPage() {
       </div>
   <a href="/dashboard" className="inline-block mt-8 bg-gray-600 text-white py-2 px-4 rounded font-semibold hover:bg-gray-700 transition">← Zurück zur Startseite</a>
     </main>
+  );
+}
+
+export default function LernenPage() {
+  return (
+    <Suspense fallback={<main className="max-w-6xl mx-auto mt-10 p-6 text-gray-500">Lade…</main>}>
+      <LernenPageInner />
+    </Suspense>
   );
 }

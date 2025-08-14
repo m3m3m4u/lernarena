@@ -3,6 +3,12 @@ import { Cloud, LOGICAL_HEIGHT, LOGICAL_WIDTH, TOP_SAFE_ZONE, QuestionBlock } fr
 let cloudIdCounter = 1;
 
 interface LayoutResult { fontSize: number; lines: string[]; lineHeight: number }
+interface LayoutOptions {
+  maxFont?: number;
+  minFont?: number;
+  hPadding?: number;
+  vPadding?: number;
+}
 
 export function laneCenterY(laneIndex:number, cloudHeight:number){
   const bottomMargin = 0.15;
@@ -13,7 +19,13 @@ export function laneCenterY(laneIndex:number, cloudHeight:number){
   return minCenter + step * laneIndex;
 }
 
-export function layoutCloudText(ctx:CanvasRenderingContext2D, text:string, maxWidth:number, maxHeight:number, options:any={}): LayoutResult {
+export function layoutCloudText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxHeight: number,
+  options: LayoutOptions = {}
+): LayoutResult {
   const maxLines = 2;
   const maxFont = options.maxFont || 24;
   const minFont = options.minFont || 6;
@@ -39,8 +51,14 @@ export function layoutCloudText(ctx:CanvasRenderingContext2D, text:string, maxWi
     let lines=['']; for(const tk of tokens){ const cand=lines[lines.length-1]? lines[lines.length-1]+' '+tk: tk; if(ctx.measureText(cand).width<=usableWidth){ lines[lines.length-1]=cand; } else { lines.push(tk); if(lines.length>maxLines) return null; } }
     const totalH = lines.length * lineHeight; if(totalH>usableHeight) return null; return {lines,lineHeight};
   }
-  let lo=minFont, hi=maxFont, best:any=null; while(lo<=hi){ const mid=Math.floor((lo+hi)/2); const fit=wrap(mid); if(fit){ best={fs:mid,...fit}; lo=mid+1; } else hi=mid-1; }
-  if(best) return { fontSize:best.fs, lines:best.lines, lineHeight:best.lineHeight };
+  let lo = minFont, hi = maxFont;
+  let best: { fs: number; lines: string[]; lineHeight: number } | null = null;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const fit = wrap(mid);
+    if (fit) { best = { fs: mid, ...fit }; lo = mid + 1; } else { hi = mid - 1; }
+  }
+  if (best) return { fontSize: best.fs, lines: best.lines, lineHeight: best.lineHeight };
   const fs=minFont; const fw=wrap(fs)||{lines:[text.slice(0, Math.max(1, Math.min(20,text.length)))], lineHeight:fs*lineSpacing};
   return { fontSize:fs, lines:fw.lines, lineHeight:fw.lineHeight };
 }

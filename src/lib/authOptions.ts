@@ -1,7 +1,7 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dbConnect from "@/lib/db";
-import User from "@/models/User";
+import User, { IUser } from "@/models/User";
 import { compare } from "bcryptjs";
 import { getServerSession } from 'next-auth/next';
 
@@ -21,32 +21,33 @@ export const authOptions: NextAuthOptions = {
         // Dev-Shortcut: Wenn keine DB konfiguriert ist, optional Demo-Login zulassen
         if (!hasDb && allowDemo) {
           if (wantUser === 'Kopernikus' && wantPass === '12345') {
-            return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as any;
+            return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as unknown as any;
           }
           throw new Error('Datenbank nicht konfiguriert (MONGODB_URI). Für Demo-Login: Benutzer "Kopernikus" / Passwort "12345" verwenden.');
         }
         try {
           await dbConnect();
-        } catch (e:any) {
+    } catch (e) {
           if (allowDemo && wantUser === 'Kopernikus' && wantPass === '12345') {
-            return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as any;
+      return { id: 'demo', name: 'Kopernikus', username: 'Kopernikus', role: 'admin' } as unknown as any;
           }
           throw e;
         }
-        const user = await User.findOne({ username: credentials?.username });
+  const user = await User.findOne({ username: credentials?.username });
         if (!user) { console.warn('[auth] user not found', credentials?.username); throw new Error("Benutzer nicht gefunden"); }
         if (!credentials?.password) throw new Error("Passwort fehlt");
         const isValid = await compare(credentials.password, user.password);
         if (!isValid) { console.warn('[auth] invalid password for', credentials?.username); throw new Error("Falsches Passwort"); }
-        const id = (user as any)._id ? String((user as any)._id) : (user.id? String(user.id): undefined);
-        const rawRole = (user as any).role ? String((user as any).role) : 'learner';
+  const uDoc = user as unknown as IUser;
+  const id = uDoc?._id ? String(uDoc._id) : (user.id ? String(user.id) : undefined);
+  const rawRole = uDoc?.role ? String(uDoc.role) : 'learner';
         // pending-author hat noch keine Rechte wie author
         return {
           id,
-          name: (user as any).name as string | undefined,
-          username: (user as any).username as string | undefined,
+          name: uDoc?.name,
+          username: uDoc?.username,
           role: rawRole
-        } as any; // NextAuth v4 erwartet ein User-ähnliches Objekt
+        } as unknown as any; // NextAuth v4 erwartet ein User-ähnliches Objekt
       },
     }),
   ],
@@ -61,27 +62,28 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         const u = user as { id?: string; username?: string; name?: string; role?: string };
-        if (u.id) (token as any).id = u.id;
-        if (u.username) (token as any).username = u.username;
+        if (u.id) (token as Record<string, unknown>).id = u.id;
+        if (u.username) (token as Record<string, unknown>).username = u.username;
         if (u.name) token.name = u.name;
-        if (u.role) (token as any).role = u.role;
+        if (u.role) (token as Record<string, unknown>).role = u.role;
       }
       // Dev-Fallback: spezieller fester Autor (nur außerhalb Produktion)
-      if (process.env.NODE_ENV !== 'production' && (token as any).username === 'Kopernikus' && (token as any).role !== 'admin') {
-        (token as any).role = 'admin';
+      const tokAny = token as Record<string, unknown>;
+      if (process.env.NODE_ENV !== 'production' && tokAny.username === 'Kopernikus' && tokAny.role !== 'admin') {
+        tokAny.role = 'admin';
       }
       return token;
     },
     async session({ session, token }) {
       if (session?.user) {
-        const t = token as { id?: string; sub?: string; username?: string; name?: string; role?: string };
+        const t = token as { id?: string; sub?: string; username?: string; name?: string; role?: 'learner' | 'author' | 'teacher' | 'admin' | 'pending-author' | 'pending-teacher' };
         session.user = {
           ...session.user,
           ...(t.id ? { id: t.id } : (t.sub ? { id: String(t.sub) } : {})),
           ...(t.username ? { username: t.username } : {}),
           ...(t.name ? { name: t.name } : {}),
           ...(t.role ? { role: t.role } : {})
-        } as any;
+        } as typeof session.user;
       }
       return session;
     },
