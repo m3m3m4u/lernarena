@@ -128,7 +128,7 @@ export default function LernenPage() {
   }, [courses, session?.user?.username, recalcProgress]);
 
   return (
-    <main className="max-w-4xl mx-auto mt-10 p-6">
+    <main className="max-w-6xl mx-auto mt-10 p-6">
       <h2 className="text-2xl font-bold mb-6">📚 Verfügbare Kurse</h2>
       {loading && <div className="text-gray-500">Lade Kurse...</div>}
       {error && <div className="text-red-600 text-sm mb-4">{error}</div>}

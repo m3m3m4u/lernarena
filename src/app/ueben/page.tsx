@@ -21,7 +21,7 @@ export default function UebenPage() {
   useEffect(()=>{ load(); }, [load]);
 
   return (
-    <main className="max-w-4xl mx-auto mt-10 p-6">
+  <main className="max-w-6xl mx-auto mt-10 p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold mb-2">✏️ Übungen</h2>
