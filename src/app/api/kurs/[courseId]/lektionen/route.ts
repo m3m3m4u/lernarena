@@ -5,6 +5,8 @@ import AuditLog from "@/models/AuditLog";
 import Course from "@/models/Course";
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/authOptions';
+import User from '@/models/User';
+import ClassCourseAccess from '@/models/ClassCourseAccess';
 import { parseMemory } from '@/lib/memory';
 import { parseLueckentext } from '@/lib/lueckentext';
 
@@ -53,6 +55,21 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'courseId fehlt', ...(dev ? { hint: 'Pfad erwartet: /api/kurs/{courseId}/lektionen' } : {}) }, { status: 400 });
     }
     await dbConnect();
+    // Zugriff für Lernende einschränken
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role as string | undefined;
+    const username = (session?.user as any)?.username as string | undefined;
+    if (role === 'learner' && username) {
+      const me = await User.findOne({ username }, '_id class').lean();
+      const classId = me?.class ? String(me.class) : null;
+      if (!classId) {
+        return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      }
+      const hasAccess = await ClassCourseAccess.exists({ class: classId, course: courseId });
+      if (!hasAccess) {
+        return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      }
+    }
     const lessons = await Lesson.find({ courseId }).sort({ order: 1, createdAt: 1 });
     return NextResponse.json({ success: true, lessons });
   } catch (error: unknown) {
@@ -85,17 +102,19 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Nicht authentifiziert' }, { status: 401 });
     }
     const userRole = (session.user as any).role;
-    const userName = (session.user as any).username;
+    const username = (session.user as any).username;
     const course = await Course.findById(courseId).lean();
     if (!course) {
       return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
     }
-    if (course.author !== userName && userRole !== 'author') {
+    const isOwnerTeacher = userRole === 'teacher' && (course as any).author === username;
+    if (!isOwnerTeacher && userRole !== 'author' && userRole !== 'admin') {
       return NextResponse.json({ success: false, error: 'Keine Berechtigung in diesem Kurs Lektionen anzulegen' }, { status: 403 });
     }
     const body: PostBody = await request.json();
 
-    const { sourceLessonId, title, type, questions, content } = body;
+  const { sourceLessonId, title, type, questions, content } = body;
+  const isCopy = Boolean(sourceLessonId);
 
     // Parser für Text-Eingabe (Single- oder Multiple-Choice)
     const parseFromTextBlocks = (blocksText: string, kind: ChoiceKind): ChoiceQuestionNormalized[] => {
@@ -381,6 +400,9 @@ export async function POST(
 
     // Immer normalisieren, wenn Fragen für Choice-Typ bereitgestellt wurden
     if ((finalType === 'single-choice' || finalType === 'multiple-choice') && Array.isArray(finalQuestions)) {
+      // Beim Kopieren (sourceLessonId) die originalen Fragen möglichst unverändert lassen
+      // und nur eine leichte Normalisierung durchführen.
+      // Strikte Validierung folgt unten nur, wenn es KEIN Kopiervorgang ist.
       finalQuestions = normalizeQuestions(finalQuestions as unknown[]);
     }
 
@@ -416,21 +438,23 @@ export async function POST(
         );
       }
 
-      // Präzise validieren/normalisieren
-      const { normalized, errors } = validateAndNormalizeChoice(finalQuestions as unknown[], finalType as ChoiceKind);
-      if (errors.length > 0) {
-        const dev = process.env.NODE_ENV !== 'production';
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Validierungsfehler in den Fragen',
-            errors,
-            ...(dev ? { count: errors.length } : {}),
-          },
-          { status: 400 }
-        );
+      // Beim Kopieren eine strikte Validierung überspringen, um bestehende Altformate nicht zu blockieren
+      if (!isCopy) {
+        const { normalized, errors } = validateAndNormalizeChoice(finalQuestions as unknown[], finalType as ChoiceKind);
+        if (errors.length > 0) {
+          const dev = process.env.NODE_ENV !== 'production';
+          return NextResponse.json(
+            {
+              success: false,
+              error: 'Validierungsfehler in den Fragen',
+              errors,
+              ...(dev ? { count: errors.length } : {}),
+            },
+            { status: 400 }
+          );
+        }
+        finalQuestions = normalized;
       }
-      finalQuestions = normalized;
     }
 
     const lastUnknown = await Lesson.findOne({ courseId }).sort({ order: -1 }).lean();
@@ -488,7 +512,7 @@ export async function POST(
       questions: (isChoice || isMatching ? finalQuestions : undefined),
       content: ((isChoice || isMatching) ? undefined : (finalContent || {})),
       courseId,
-      category: course.category,
+  category: (course as any).category,
       order: newOrder
     });
 
@@ -498,7 +522,7 @@ export async function POST(
       try {
         await AuditLog.create({
           action: 'lesson.create',
-          user: userName,
+          user: username,
             targetType: 'lesson',
           targetId: String(savedLesson._id),
           courseId,

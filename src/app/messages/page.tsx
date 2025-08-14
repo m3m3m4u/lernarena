@@ -24,7 +24,14 @@ export default function MessagesPage(){
   const [classes,setClasses]=useState<Option[]>([]);
   const [folder,setFolder]=useState<'inbox'|'outbox'|'trash'>('inbox');
 
-  useEffect(()=>{ if(status==='unauthenticated') router.push('/login'); },[status,router]);
+  useEffect(()=>{
+    if(status==='unauthenticated') { router.push('/login'); return; }
+    // Nur Teacher und Learner dürfen Nachrichten nutzen (Autoren/Admins raus)
+    const r = (session?.user as any)?.role;
+    if(status==='authenticated' && r && r!=='teacher' && r!=='learner'){
+      router.push('/dashboard');
+    }
+  },[status,router,(session?.user as any)?.role]);
 
   async function load(){
     setLoading(true); setError(null);
@@ -80,7 +87,7 @@ export default function MessagesPage(){
   }
   async function purge(id:string){
     if(!confirm('Endgültig löschen? Dies kann nicht rückgängig gemacht werden.')) return;
-    try{ const res=await fetch('/api/messages',{ method:'PURGE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ messageId:id })}); if(res.ok) load(); } catch{}
+  try{ const res=await fetch('/api/messages',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'purge', messageId:id })}); if(res.ok) load(); } catch{}
   }
 
   function isReadByMe(m: Msg): boolean{

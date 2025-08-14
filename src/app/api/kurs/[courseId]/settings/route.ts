@@ -35,8 +35,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ cours
     if (!course) {
       return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
     }
-    if (course.author !== userName && userRole !== 'author') {
+  if (course.author !== userName && userRole !== 'author' && userRole !== 'admin') {
       return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
+    }
+
+    // Teacher dürfen den Veröffentlichungsstatus nicht verändern
+    if (userRole === 'teacher' && Object.prototype.hasOwnProperty.call(update, 'isPublished')) {
+      delete update.isPublished;
     }
     const oldCategory = course.category;
     Object.assign(course, update);

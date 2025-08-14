@@ -133,7 +133,7 @@ export default function LernenPage() {
       {loading && <div className="text-gray-500">Lade Kurse...</div>}
       {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
       {!loading && !error && courses.length === 0 && (
-        <div className="text-gray-500">Noch keine veröffentlichten Kurse.</div>
+        <div className="text-gray-500">Für dich sind aktuell keine Kurse freigeschaltet. Bitte wende dich an deine Lehrperson.</div>
       )}
       <div className="grid gap-6 md:grid-cols-2">
         {courses.map(course => {

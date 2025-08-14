@@ -54,7 +54,7 @@ export default function LoginPage() {
       </form>
       {error && <p className="text-red-600 mt-4">{error}</p>}
       <p className="mt-4">Noch keinen Account? <a href="/register" className="text-blue-600 underline">Registrieren</a></p>
-      <p className="mt-2 text-xs text-gray-500">Autor-Login (nicht registrierbar): Benutzername: Kopernikus Passwort: 12345</p>
+  <p className="mt-2 text-xs text-gray-500">Demo-Login (lokal ohne DB): Benutzername: <strong>Kopernikus</strong> Passwort: <strong>12345</strong></p>
     </div>
   );
 }

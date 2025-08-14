@@ -17,6 +17,15 @@
 			"label": "reload-client",
 			"type": "shell",
 			"command": "node -e \"console.log('noop')\""
+		},
+		{
+			"label": "typecheck",
+			"type": "shell",
+			"command": "npm run typecheck",
+			"problemMatcher": [
+				"$tsc"
+			],
+			"group": "build"
 		}
 	]
 }

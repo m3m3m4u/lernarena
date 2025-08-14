@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import MarkdownPreview from '@/components/shared/MarkdownPreview';
 import { extractYouTubeId } from '@/lib/extractYouTubeId';
 import type { ComponentType } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface Question {
   question: string;
@@ -99,24 +99,17 @@ export default function EditLessonPage() {
   const params = useParams();
   const router = useRouter();
   const lessonId = params.lessonId as string;
-  // Prüfe ob vom Übungen-Tab aufgerufen (Query ?from=uebungen)
-  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : undefined;
-  // Herkunft bestimmen: Query-Param, localStorage Marker oder exercise-pool
-    let initialReturnFlag = searchParams?.get('from') === 'uebungen' || (typeof window !== 'undefined' && window.location.search.includes('from=uebungen'));
-  // Rücksprung-Entscheidung jetzt nach Definition von lesson-State
-  if (typeof window !== 'undefined') {
-    try {
-      const ref = document.referrer;
-      if (!initialReturnFlag && ref && /\/autor(\?.*tab=uebungen)?/.test(ref)) initialReturnFlag = true;
-      const stored = localStorage.getItem('lastAuthorTab');
-      if (!initialReturnFlag && stored === 'uebungen') initialReturnFlag = true;
-    } catch {}
-  }
+  const pathname = usePathname();
+  const inTeacher = pathname?.startsWith('/teacher/');
+  // Prüfe ob vom Übungen-Tab aufgerufen (Query ?from=uebungen) ohne window
+  const sp = useSearchParams();
+  const initialReturnFlag = sp.get('from') === 'uebungen';
   // Basis-State
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [returnToExercises, setReturnToExercises] = useState<boolean>(initialReturnFlag);
   useEffect(()=>{ if (lesson && lesson.courseId === 'exercise-pool' && !returnToExercises) setReturnToExercises(true); }, [lesson, returnToExercises]);
-  useEffect(()=>{ if (typeof window !== 'undefined') localStorage.setItem('lastAuthorTab', returnToExercises ? 'uebungen' : 'kurse'); }, [returnToExercises]);
+  // Optional: Marker im Speicher nur clientseitig setzen; nicht kritisch für Funktion
+  useEffect(()=>{ try { if (typeof window !== 'undefined') localStorage.setItem('lastAuthorTab', returnToExercises ? 'uebungen' : 'kurse'); } catch {} }, [returnToExercises]);
   const forceExercisesForPool = (l?: Lesson|null) => !!l && l.courseId === 'exercise-pool';
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -404,7 +397,11 @@ export default function EditLessonPage() {
   // Speichern (neu aufgebaut nach Korrumpierung)
   // Einheitlicher Redirect nach Speichern
   const goBack = (l: Lesson) => {
-    router.push((returnToExercises || forceExercisesForPool(l)) ? '/autor?tab=uebungen' : `/autor/kurs/${l.courseId}`);
+    if (returnToExercises || forceExercisesForPool(l)) {
+      router.push(inTeacher ? '/teacher' : '/autor?tab=uebungen');
+    } else {
+      router.push(inTeacher ? `/teacher/kurs/${l.courseId}` : `/autor/kurs/${l.courseId}`);
+    }
   };
 
   const handleSave = async () => {

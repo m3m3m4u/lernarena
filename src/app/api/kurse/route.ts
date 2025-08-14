@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/db";
 import Course from "@/models/Course";
 import Lesson from "@/models/Lesson"; // hinzugefügt
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/authOptions';
+import User from '@/models/User';
+import ClassCourseAccess from '@/models/ClassCourseAccess';
 
 const ALLOWED_CATEGORIES = [
   "Mathematik",
@@ -24,11 +28,37 @@ type CountAgg = { _id: string; count: number };
 export async function GET(req: NextRequest) {
   try {
     await dbConnect();
+    const session = await getServerSession(authOptions);
     const url = new URL(req.url);
     const showAll = url.searchParams.get("showAll") === "1";
     const filter: Record<string, unknown> = showAll ? {} : { isPublished: true };
 
-    const courses: LeanCourse[] = await Course.find(filter).sort({ createdAt: -1 }).lean();
+    let courses: LeanCourse[] = [];
+    // Rollen-/Klassenlogik: Lernende in Klassen sehen nur freigeschaltete Kurse.
+    const role = (session?.user as any)?.role as string | undefined;
+    const username = (session?.user as any)?.username as string | undefined;
+    if (role === 'learner' && username) {
+      // Finde Lernenden inkl. Klassen-ID
+      const me = await User.findOne({ username }, '_id class').lean();
+      const classId = me?.class ? String(me.class) : null;
+      if (classId) {
+        const accesses = await ClassCourseAccess.find({ class: classId }).lean();
+        const allowedCourseIds = accesses.map(a => String(a.course));
+        if (allowedCourseIds.length === 0) {
+          courses = [];
+        } else {
+          const f: Record<string, unknown> = { _id: { $in: allowedCourseIds } };
+          if (!showAll) f.isPublished = true;
+          courses = await Course.find(f).sort({ createdAt: -1 }).lean();
+        }
+      } else {
+        // Lernende ohne Klasse sehen derzeit keine Kurse (Policy)
+        courses = [];
+      }
+    } else {
+      // Für Teacher/Admin/Autoren weiterhin global, aber showAll steuert Veröffentlichungen
+      courses = await Course.find(filter).sort({ createdAt: -1 }).lean();
+    }
 
     const courseIds = courses.map((c) => String(c._id));
     const counts = await Lesson.aggregate<CountAgg>([
@@ -43,7 +73,7 @@ export async function GET(req: NextRequest) {
       lessonCount: countMap[String(c._id)] || 0
     }));
 
-    return NextResponse.json({ success: true, courses: coursesWithCounts });
+  return NextResponse.json({ success: true, courses: coursesWithCounts });
   } catch (error: unknown) {
     console.error("Fehler beim Laden der Kurse:", error);
     return NextResponse.json(
@@ -65,6 +95,11 @@ interface PostBody {
 export async function POST(req: NextRequest) {
   try {
     await dbConnect();
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role as string | undefined;
+    if (!session?.user || (role !== 'author' && role !== 'admin')) {
+      return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
+    }
     const raw = await req.json();
     const body = raw as PostBody;
   const { title, description, category, tags = [], author: authorFromBody, progressionMode } = body;
@@ -76,7 +111,8 @@ export async function POST(req: NextRequest) {
     const catStr = String(category).trim();
     const normalizedCategory = ALLOWED_CATEGORIES.find(c => c.toLowerCase() === catStr.toLowerCase()) || 'sonstiges';
 
-    const author = authorFromBody ? String(authorFromBody) : 'guest';
+  // Autor kommt aus Session – keine freie Wahl per Body
+  const author = (session.user as any).username || 'author';
     const tagsArray: string[] = Array.isArray(tags) ? (tags as unknown[]).map((t) => String(t)) : [];
 
     const mode = progressionMode === 'linear' ? 'linear' : 'free';

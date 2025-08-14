@@ -11,13 +11,14 @@ export async function POST(req: NextRequest, context: { params: Promise<{ course
   try {
     await dbConnect();
     const session = await getServerSession(authOptions);
-    if (!session?.user) return NextResponse.json({ success: false, error: 'Nicht authentifiziert' }, { status: 401 });
+  if (!session?.user) return NextResponse.json({ success: false, error: 'Nicht authentifiziert' }, { status: 401 });
     const username = (session.user as any).username;
     const role = (session.user as any).role;
   const { courseId } = await context.params;
     const course = await Course.findById(courseId).lean();
     if (!course) return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
-    if (course.author !== username && role !== 'author') {
+  const isOwnerTeacher = role === 'teacher' && course.author === username;
+  if (!isOwnerTeacher && role !== 'author' && role !== 'admin') {
       return NextResponse.json({ success: false, error: 'Keine Berechtigung' }, { status: 403 });
     }
     const body = await req.json().catch(()=>null) as { order?: unknown } | null;
