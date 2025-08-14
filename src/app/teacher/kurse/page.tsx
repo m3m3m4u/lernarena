@@ -3,6 +3,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/shared/ToastProvider';
+import MediaLibrary from '@/components/media/MediaLibrary';
 
 interface TeacherClass { _id:string; name:string; }
 interface CourseDB { _id:string; title:string; description?:string; category?:string; isPublished?:boolean; author?:string; }
@@ -28,9 +29,9 @@ function TeacherCoursesContent(){
     const t = search?.get('tab');
     // Backward compat: 'kurse' -> 'eigene'
     if(t==='kurse') return 'eigene';
-    return (t==='freigaben'||t==='eigene'||t==='uebernommen') ? (t as 'freigaben'|'eigene'|'uebernommen') : 'eigene';
+    return (t==='freigaben'||t==='eigene'||t==='uebernommen'||t==='medien') ? (t as any) : 'eigene';
   })();
-  const [tab,setTab] = useState<'eigene'|'uebernommen'|'freigaben'>(initialTab as any);
+  const [tab,setTab] = useState<'eigene'|'uebernommen'|'freigaben'|'medien'>(initialTab as any);
 
   const username = (session?.user as any)?.username as string|undefined;
   const role = (session?.user as any)?.role as string|undefined;
@@ -62,7 +63,7 @@ function TeacherCoursesContent(){
     if(role!=='teacher') { router.push('/dashboard'); return; }
   }, [status, role, router]);
 
-  function changeTab(next:'eigene'|'uebernommen'|'freigaben'){
+  function changeTab(next:'eigene'|'uebernommen'|'freigaben'|'medien'){
     setTab(next);
     try{
       const url = new URL(window.location.href);
@@ -160,7 +161,7 @@ function TeacherCoursesContent(){
           <a href="/teacher" className="text-sm text-blue-600 hover:underline">← Zurück</a>
           <h1 className="text-2xl font-bold">Lehrperson • Kurse</h1>
         </div>
-        <a href="/dashboard" className="text-sm text-blue-600 hover:underline">🏠 Dashboard</a>
+  <a href="/dashboard" className="text-sm text-blue-600 hover:underline">🏠 Startseite</a>
       </div>
 
       {/* Tabs */}
@@ -168,6 +169,7 @@ function TeacherCoursesContent(){
         <button onClick={()=>changeTab('eigene')} className={"pb-2 -mb-px border-b-2 "+(tab==='eigene'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Eigene</button>
         <button onClick={()=>changeTab('uebernommen')} className={"pb-2 -mb-px border-b-2 "+(tab==='uebernommen'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Übernommene</button>
         <button onClick={()=>changeTab('freigaben')} className={"pb-2 -mb-px border-b-2 "+(tab==='freigaben'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Freigaben</button>
+        <button onClick={()=>changeTab('medien')} className={"pb-2 -mb-px border-b-2 "+(tab==='medien'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Medien</button>
       </div>
 
       {(tab==='eigene' || tab==='uebernommen') && (
@@ -246,6 +248,12 @@ function TeacherCoursesContent(){
               <ClassAssignments classId={selectedFreigabeClassId} lessonCounts={lessonCounts} onRemove={(cid)=>removeFromClass(selectedFreigabeClassId, cid)} />
             </div>
           )}
+        </section>
+      )}
+
+      {tab==='medien' && (
+        <section>
+          <MediaLibrary canUpload={false} />
         </section>
       )}
 

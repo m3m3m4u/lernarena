@@ -54,7 +54,16 @@ export default function LoginPage() {
       </form>
       {error && <p className="text-red-600 mt-4">{error}</p>}
       <p className="mt-4">Noch keinen Account? <a href="/register" className="text-blue-600 underline">Registrieren</a></p>
-  <p className="mt-2 text-xs text-gray-500">Demo-Login (lokal ohne DB): Benutzername: <strong>Kopernikus</strong> Passwort: <strong>12345</strong></p>
+      <div className="mt-6 border-t pt-4">
+        <button
+          onClick={()=>{ try { localStorage.setItem('guest:active','1'); } catch {}; window.location.href = '/guest'; }}
+          className="w-full bg-yellow-500 hover:bg-yellow-600 text-white py-2 rounded font-semibold"
+        >Als Gast weitermachen</button>
+        <p className="mt-2 text-xs text-yellow-800 bg-yellow-50 border border-yellow-300 rounded p-2">
+          Hinweis: Im Gastmodus werden Fortschritte und Einstellungen nur lokal im Browser gespeichert.
+        </p>
+      </div>
+      <p className="mt-2 text-xs text-gray-500">Demo-Login (lokal ohne DB): Benutzername: <strong>Kopernikus</strong> Passwort: <strong>12345</strong></p>
     </div>
   );
 }

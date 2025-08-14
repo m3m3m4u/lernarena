@@ -420,7 +420,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   },[running, paused, gameOver, spawnClouds, activeQuestionId, nextQuestion]);
 
   // Completion analog Snake
-  useEffect(()=>{ if(!finished && score >= targetScore){ setFinished(true); if(!completedLessons.includes(lesson._id)){ (async()=>{ try{ if(!session?.user?.username) return; setMarking(true); await finalizeLesson({ username: session.user.username, lessonId: lesson._id, courseId, type: lesson.type, earnedStar: lesson.type !== 'markdown' }); setCompletedLessons(prev=> prev.includes(lesson._id)? prev: [...prev, lesson._id]); } finally { setMarking(false);} })(); } } },[score, targetScore, finished, completedLessons, lesson._id, lesson.type, courseId, session?.user?.username, setCompletedLessons]);
+  useEffect(()=>{ if(!finished && score >= targetScore){ setFinished(true); if(!completedLessons.includes(lesson._id)){ (async()=>{ try{ const username=session?.user?.username; setMarking(true); await finalizeLesson({ username, lessonId: lesson._id, courseId, type: lesson.type, earnedStar: lesson.type !== 'markdown' }); setCompletedLessons(prev=> prev.includes(lesson._id)? prev: [...prev, lesson._id]); } finally { setMarking(false);} })(); } } },[score, targetScore, finished, completedLessons, lesson._id, lesson.type, courseId, session?.user?.username, setCompletedLessons]);
 
   // Skalierung aus Lesson-Content (optional)
   const contentScaleRaw = Number((lesson as any)?.content?.planeScale);

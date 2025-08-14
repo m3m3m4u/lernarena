@@ -30,7 +30,7 @@ export async function GET(
     await dbConnect();
     const { courseId } = await context.params;
 
-    const course = await Course.findById(courseId);
+  const course = await Course.findById(courseId);
     if (!course) {
       return NextResponse.json(
         { success: false, error: "Kurs nicht gefunden" },
@@ -38,10 +38,10 @@ export async function GET(
       );
     }
 
-    // Zugriff für Lernende einschränken: nur wenn Kurs für ihre Klasse freigeschaltet ist
-    const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role as string | undefined;
-    const username = (session?.user as any)?.username as string | undefined;
+  // Zugriffseinschränkung
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as any)?.role as string | undefined;
+  const username = (session?.user as any)?.username as string | undefined;
     if (role === 'learner' && username) {
       const me = await User.findOne({ username }, '_id class').lean();
       const classId = me?.class ? String(me.class) : null;
@@ -51,6 +51,12 @@ export async function GET(
       const access = await ClassCourseAccess.findOne({ class: classId, course: courseId }).lean();
       if (!access) {
         return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      }
+    }
+    // Gäste/Anonyme: nur veröffentlichte Kurse sichtbar
+    if (!session?.user || !(role === 'author' || role === 'admin' || role === 'teacher' || role === 'learner')) {
+      if (!course.isPublished) {
+        return NextResponse.json({ success: false, error: 'Kurs ist nicht veröffentlicht' }, { status: 403 });
       }
     }
 

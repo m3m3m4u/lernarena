@@ -26,6 +26,12 @@
 				"$tsc"
 			],
 			"group": "build"
+		},
+		{
+			"label": "typecheck",
+			"type": "shell",
+			"command": "npm run typecheck",
+			"group": "build"
 		}
 	]
 }

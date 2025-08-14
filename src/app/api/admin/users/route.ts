@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import User from '@/models/User';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/lib/authOptions';
+import { isAdminRequest, rateLimit } from '@/lib/adminGuard';
 
 // Liste + Erstellen von speziellen Accounts (teacher, author Freigabe)
 export async function GET(request: Request){
+  if(!rateLimit(request, 'admin-users')) return NextResponse.json({ success:false, error:'Rate limit' }, { status:429 });
   await dbConnect();
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+  if(!(await isAdminRequest(request))) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const url = new URL(request.url);
   const q = (url.searchParams.get('q') || '').trim().toLowerCase();
   const page = Math.max(1, parseInt(url.searchParams.get('page') || '1', 10));
@@ -55,10 +53,9 @@ export async function GET(request: Request){
 }
 
 export async function POST(request: Request){
+  if(!rateLimit(request, 'admin-users')) return NextResponse.json({ success:false, error:'Rate limit' }, { status:429 });
   await dbConnect();
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+  if(!(await isAdminRequest(request))) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await request.json().catch(()=>({}));
   const { username, name, password, email, makeRole } = body as any;
   if(!username || !name || !password || !makeRole) return NextResponse.json({ success:false, error:'Felder fehlen' }, { status:400 });
@@ -73,10 +70,9 @@ export async function POST(request: Request){
 
 // Patch: Rolle ändern (pending-author -> author, etc.)
 export async function PATCH(request: Request){
+  if(!rateLimit(request, 'admin-users')) return NextResponse.json({ success:false, error:'Rate limit' }, { status:429 });
   await dbConnect();
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+  if(!(await isAdminRequest(request))) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await request.json().catch(()=>({}));
   const { username, newRole } = body as any;
   if(!username || !newRole) return NextResponse.json({ success:false, error:'Felder fehlen' }, { status:400 });
@@ -88,14 +84,13 @@ export async function PATCH(request: Request){
 
 // Benutzer löschen
 export async function DELETE(request: Request){
+  if(!rateLimit(request, 'admin-users')) return NextResponse.json({ success:false, error:'Rate limit' }, { status:429 });
   await dbConnect();
-  const session = await getServerSession(authOptions);
-  const role = (session?.user as any)?.role;
-  if(role !== 'admin') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+  if(!(await isAdminRequest(request))) return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   const body = await request.json().catch(()=>({}));
   const { username } = body as any;
   if(!username) return NextResponse.json({ success:false, error:'Username fehlt' }, { status:400 });
-  if(username === (session?.user as any)?.username) return NextResponse.json({ success:false, error:'Eigenen Account nicht löschen' }, { status:400 });
+  // Hinweis: Eigenschutz nur bei Session-basiertem Zugriff sinnvoll. Bei API-Key-Szenarien entfällt dies.
   const res = await User.deleteOne({ username });
   if(res.deletedCount === 0) return NextResponse.json({ success:false, error:'Benutzer nicht gefunden' }, { status:404 });
   return NextResponse.json({ success:true, deleted: username });

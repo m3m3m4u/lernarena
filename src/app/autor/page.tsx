@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import MediaLibrary from '@/components/media/MediaLibrary';
 
 interface CourseDB { _id: string; title: string; description?: string; category?: string; isPublished?: boolean; }
 interface CourseUI { id: string; title: string; description?: string; category?: string; status: string; lessons: number; }
@@ -9,14 +11,17 @@ interface LessonLite { _id: string; title: string; type: string; isExercise?: bo
 export default function AutorPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session } = useSession();
+  const role = (session?.user as any)?.role as string | undefined;
+  const canUpload = role === 'author' || role === 'admin';
   const initialTab = (()=>{
     const t = searchParams?.get('tab');
-    return (t==='uebungen'||t==='neu'||t==='kurse') ? t : 'kurse';
+    return (t==='uebungen'||t==='neu'||t==='kurse'||t==='medien') ? t : 'kurse';
   })();
-  const [tab, setTab] = useState<'kurse'|'neu'|'uebungen'>(initialTab);
+  const [tab, setTab] = useState<'kurse'|'neu'|'uebungen'|'medien'>(initialTab as any);
 
   // Hilfsfunktion: Tab wechseln UND URL (Query) aktualisieren, damit Refresh / Direktlink funktioniert
-  function changeTab(next: 'kurse'|'neu'|'uebungen') {
+  function changeTab(next: 'kurse'|'neu'|'uebungen'|'medien') {
     setTab(next);
     try {
       const url = new URL(window.location.href);
@@ -24,7 +29,7 @@ export default function AutorPage() {
       // Router ersetzen statt push um History-Spam zu vermeiden
       router.replace(url.pathname + '?' + url.searchParams.toString());
       // Merken für andere Seiten (Back-Link Logik)
-      localStorage.setItem('lastAuthorTab', next === 'uebungen' ? 'uebungen' : 'kurse');
+      localStorage.setItem('lastAuthorTab', next === 'uebungen' ? 'uebungen' : (next==='medien'?'medien':'kurse'));
     } catch { /* ignore */ }
   }
   return (
@@ -35,10 +40,16 @@ export default function AutorPage() {
         <button onClick={()=>changeTab('kurse')} className={"pb-2 -mb-px border-b-2 "+(tab==='kurse'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Kurse</button>
         <button onClick={()=>changeTab('neu')} className={"pb-2 -mb-px border-b-2 "+(tab==='neu'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Neuer Kurs</button>
         <button onClick={()=>changeTab('uebungen')} className={"pb-2 -mb-px border-b-2 "+(tab==='uebungen'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Übungen</button>
+        <button onClick={()=>changeTab('medien')} className={"pb-2 -mb-px border-b-2 "+(tab==='medien'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Medien</button>
       </div>
       {tab==='kurse' && <CoursesTab />}
       {tab==='neu' && <CreateCourseTab />}
       {tab==='uebungen' && <ExercisesTab />}
+      {tab==='medien' && (
+        <section>
+          <MediaLibrary canUpload={!!canUpload} />
+        </section>
+      )}
     </main>
   );
 }

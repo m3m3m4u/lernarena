@@ -17,10 +17,9 @@
     "vercel-build": "next build"
   },
   "dependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/mongoose": "^5.11.96",
     "bcryptjs": "^3.0.2",
     "mongoose": "^8.17.0",
+    "@vercel/blob": "^0.23.4",
     "next": "15.4.6",
     "next-auth": "^4.24.11",
     "react": "19.1.0",
@@ -34,8 +33,11 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/bcryptjs": "^2.4.6",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
+    "cross-env": "^7.0.3",
+    "tsx": "^4.19.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

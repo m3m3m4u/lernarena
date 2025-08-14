@@ -32,6 +32,8 @@ const MessageSchema = new Schema<IMessage>({
 
 MessageSchema.pre('save', function(next){ this.updatedAt = new Date(); next(); });
 MessageSchema.pre('findOneAndUpdate', function(next){ this.set({ updatedAt: new Date() }); next(); });
+// Häufige Sortierung: neueste Nachrichten zuerst
+MessageSchema.index({ createdAt: -1 });
 
 try { if (mongoose.modelNames().includes('Message')) { mongoose.deleteModel('Message'); } } catch {}
 export default mongoose.model<IMessage>('Message', MessageSchema);
