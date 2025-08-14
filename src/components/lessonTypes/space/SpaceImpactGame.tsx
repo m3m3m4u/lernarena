@@ -1,6 +1,6 @@
 "use client";
 import React, { useRef, useState, useEffect } from 'react';
-import type { Lesson } from '../types';
+import type { Lesson, LessonContent } from '../types';
 import { useSession } from 'next-auth/react';
 import { finalizeLesson } from '../../../lib/lessonCompletion';
 import { buildQuestionBlocks } from '../plane/questions';
@@ -8,7 +8,7 @@ import { buildQuestionBlocks } from '../plane/questions';
 interface Props { lesson: Lesson; courseId: string; completedLessons: string[]; setCompletedLessons: (v: string[] | ((p:string[])=>string[]))=>void; }
 
 const W = 960; const H = 540; const FORCE_MIN_DPR=2; const MAX_LIVES=3; const DEFAULT_TARGET_SCORE=15;
-interface Orb { x:number;y:number;r:number;color:string;correct:boolean;speed:number;spawnEntry:any;_hit?:boolean;_remove?:boolean; }
+interface Orb { x:number;y:number;r:number;color:string;correct:boolean;speed:number;spawnEntry:SpawnEntry;_hit?:boolean;_remove?:boolean; }
 interface Projectile { x:number;y:number;vx:number;r:number;_hit?:boolean; }
 interface Particle { x:number;y:number;vx:number;vy:number;life:number;maxLife:number;color:string;size:number; }
 interface SpawnEntry { color:string;correct:boolean;laneIndex:number;nextSpawn:number; }
@@ -33,7 +33,7 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
   const [gamePixelWidth,setGamePixelWidth]=useState<number|undefined>(undefined);
 
   const blocks=buildQuestionBlocks(lesson);
-  const targetScore=Number((lesson as any)?.content?.targetScore)||DEFAULT_TARGET_SCORE;
+  const targetScore=Number((lesson.content as LessonContent | undefined)?.targetScore)||DEFAULT_TARGET_SCORE;
   const questionPoolRef=useRef<{idx:number;weight:number}[]>([]); const currentQuestionIndexRef=useRef(0); const spawnEntriesRef=useRef<SpawnEntry[]>([]);
   const initQuestionPool=()=>{ questionPoolRef.current=blocks.map((_,i)=>({idx:i,weight:5})); };
   const pickNextQuestionIndex=():number=>{ if(!questionPoolRef.current.length) initQuestionPool(); const total=questionPoolRef.current.reduce((s,q)=>s+q.weight,0); let r=Math.random()*total; for(const q of questionPoolRef.current){ if(r<q.weight) return q.idx; r-=q.weight; } return questionPoolRef.current[0].idx; };
@@ -42,19 +42,24 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
   const loadQuestionOriginal=(idx?:number)=>{
     if(idx==null||idx>=blocks.length) idx=pickNextQuestionIndex();
     currentQuestionIndexRef.current=idx;
-    const q=blocks[idx] as any;
-    setQuestionText(q.question || q.prompt || q.title || '');
-    let source:any[] = q.answers || q.options || q.choices || q.alternatives || q.antworten || [];
-    if((!Array.isArray(source) || !source.length)){
-      // Heuristik: erstes Array im Objekt mit plausiblen Antwort-Objekten
-      const cand = Object.values(q).find((v:any)=> Array.isArray(v) && v.length && v.every((e:any)=> typeof e==='string' || typeof e==='object'));
-      if(cand) source = cand as any[];
+    const q=blocks[idx];
+      setQuestionText((q as unknown as { question?: string; prompt?: string; title?: string }).question || (q as unknown as { prompt?: string }).prompt || (q as unknown as { title?: string }).title || '');
+    let sourceUnknown = (q as unknown as { answers?: unknown; options?: unknown; choices?: unknown; alternatives?: unknown; antworten?: unknown }).answers
+      || (q as unknown as { options?: unknown }).options
+      || (q as unknown as { choices?: unknown }).choices
+      || (q as unknown as { alternatives?: unknown }).alternatives
+      || (q as unknown as { antworten?: unknown }).antworten
+      || [];
+    if((!Array.isArray(sourceUnknown) || !sourceUnknown.length)){
+        const cand = Object.values(q as unknown as Record<string, unknown>).find((v)=> Array.isArray(v) && v.length>0 && v.every((e)=> typeof e==='string' || typeof e==='object'));
+      if(cand) sourceUnknown = cand as unknown[];
     }
-    const rawAnswers = (Array.isArray(source)? source: []).map((a:any)=>{
+    const rawAnswers = (Array.isArray(sourceUnknown)? sourceUnknown: []).map((a)=>{
       if(a==null) return { text:'', correct:false };
       if(typeof a==='string') return { text:a, correct:false };
-      const text = a.text || a.answer || a.value || a.label || a.title || a.content || '';
-      const correct = !!(a.correct || a.isCorrect || a.right || a.valid);
+      const obj = a as Record<string, unknown>;
+      const text = (obj.text || obj.answer || obj.value || obj.label || obj.title || obj.content || '') as string;
+      const correct = Boolean(obj.correct || obj.isCorrect || obj.right || obj.valid);
       return { text:String(text), correct };
     }).filter(a=> a.text !== '' || a.correct);
     const useAnswers = rawAnswers.length? rawAnswers : [{ text:'(keine Antworten gefunden)', correct:false }];
@@ -81,30 +86,37 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
 
   useEffect(()=>{ const kd=(e:KeyboardEvent)=>{ if(e.code==='ArrowUp'||e.code==='KeyW'){inputRef.current.up=true; e.preventDefault();} if(e.code==='ArrowDown'||e.code==='KeyS'){inputRef.current.down=true; e.preventDefault();} if(e.code==='Space'){inputRef.current.shoot=true; e.preventDefault();} if(e.code==='KeyP'){ setPaused(p=>!p);} if(!running && e.code==='Enter'){ start(); } if(gameOver && e.code==='Enter'){ restart(); } }; const ku=(e:KeyboardEvent)=>{ if(e.code==='ArrowUp'||e.code==='KeyW') inputRef.current.up=false; if(e.code==='ArrowDown'||e.code==='KeyS') inputRef.current.down=false; if(e.code==='Space') inputRef.current.shoot=false; }; window.addEventListener('keydown',kd); window.addEventListener('keyup',ku); return ()=>{ window.removeEventListener('keydown',kd); window.removeEventListener('keyup',ku); }; },[running,gameOver]);
 
-  useEffect(()=>{ const canvas=canvasRef.current; if(!canvas) return; const ctx=canvas.getContext('2d'); if(!ctx) return; const sys=window.devicePixelRatio||1; const dpr=Math.max(sys,FORCE_MIN_DPR); canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=true; (ctx as any).imageSmoothingQuality='high'; },[]);
+  useEffect(()=>{ const canvas=canvasRef.current; if(!canvas) return; const ctx=canvas.getContext('2d'); if(!ctx) return; const sys=window.devicePixelRatio||1; const dpr=Math.max(sys,FORCE_MIN_DPR); canvas.width=W*dpr; canvas.height=H*dpr; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled=true; (ctx as unknown as { imageSmoothingQuality?: string }).imageSmoothingQuality='high'; },[]);
 
   // Neue Version: loadQuestion mit optionalem Spawn-Delay
   const loadQuestion=(idx?:number, delaySeconds:number=0)=>{
     if(idx==null||idx>=blocks.length) idx=pickNextQuestionIndex();
     currentQuestionIndexRef.current=idx;
-    const q=blocks[idx] as any;
-    setQuestionText(q.question || q.prompt || q.title || '');
-    let source:any[] = q.answers || q.options || q.choices || q.alternatives || q.antworten || [];
-    if((!Array.isArray(source) || !source.length)){
-      const cand = Object.values(q).find((v:any)=> Array.isArray(v) && v.length && v.every((e:any)=> typeof e==='string' || typeof e==='object'));
-      if(cand) source = cand as any[];
+    const q=blocks[idx];
+    setQuestionText((q as unknown as { question?: string; prompt?: string; title?: string }).question || (q as unknown as { prompt?: string }).prompt || (q as unknown as { title?: string }).title || '');
+    let sourceUnknown = (q as unknown as { answers?: unknown; options?: unknown; choices?: unknown; alternatives?: unknown; antworten?: unknown }).answers
+      || (q as unknown as { options?: unknown }).options
+      || (q as unknown as { choices?: unknown }).choices
+      || (q as unknown as { alternatives?: unknown }).alternatives
+      || (q as unknown as { antworten?: unknown }).antworten
+      || [];
+    if((!Array.isArray(sourceUnknown) || !sourceUnknown.length)){
+  const cand = Object.values(q as unknown as Record<string, unknown>).find((v)=> Array.isArray(v) && v.length>0 && v.every((e)=> typeof e==='string' || typeof e==='object'));
+      if(cand) sourceUnknown = cand as unknown[];
     }
-    const rawAnswers = (Array.isArray(source)? source: []).map((a:any)=>{
+    const rawAnswers = (Array.isArray(sourceUnknown)? sourceUnknown: []).map((a)=>{
       if(a==null) return { text:'', correct:false };
       if(typeof a==='string') return { text:a, correct:false };
-      const text = a.text || a.answer || a.value || a.label || a.title || a.content || '';
-      const correct = !!(a.correct || a.isCorrect || a.right || a.valid);
+      const obj = a as Record<string, unknown>;
+      const text = (obj.text || obj.answer || obj.value || obj.label || obj.title || obj.content || '') as string;
+      const correct = Boolean(obj.correct || obj.isCorrect || obj.right || obj.valid);
       return { text:String(text), correct };
     }).filter(a=> a.text !== '' || a.correct);
     // Falls keine Answer selbst als correct markiert ist, aber Block einen Index enthält -> anwenden
     let useAnswers = rawAnswers.length? rawAnswers : [{ text:'(keine Antworten gefunden)', correct:false }];
     if(useAnswers.length && !useAnswers.some(a=>a.correct)){
-      const idxFlag = (typeof q.correct === 'number')? q.correct : (typeof q.correctIndex === 'number'? q.correctIndex : undefined);
+      const qAny = q as unknown as { correct?: unknown; correctIndex?: unknown };
+      const idxFlag = (typeof qAny.correct === 'number')? qAny.correct : (typeof qAny.correctIndex === 'number'? qAny.correctIndex : undefined);
       if(typeof idxFlag === 'number' && idxFlag>=0 && idxFlag < useAnswers.length){
         useAnswers = useAnswers.map((a,i)=> i===idxFlag? {...a, correct:true}: a);
       }
@@ -211,7 +223,9 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
     return ()=>{ window.removeEventListener('resize',apply); ro1.disconnect(); ro2.disconnect(); };
   },[isFullscreen,questionText,currentAnswers.length]);
 
-  const contentScaleRaw=Number((lesson as any)?.content?.spaceScale); const DISPLAY_SCALE=(!isNaN(contentScaleRaw)&&contentScaleRaw>0.15&&contentScaleRaw<=1)? contentScaleRaw:0.8; const BASE_WIDTH=Math.round(W*DISPLAY_SCALE);
+  const contentScaleRaw=Number((lesson.content as LessonContent | undefined)?.spaceScale);
+  const DISPLAY_SCALE=(!isNaN(contentScaleRaw) && contentScaleRaw > 0.15 && contentScaleRaw <= 1) ? contentScaleRaw : 0.8;
+  const BASE_WIDTH=Math.round(W*DISPLAY_SCALE);
 
   return (
   <div ref={wrapperRef} className={isFullscreen? 'w-screen h-screen flex flex-col items-center bg-[#05070d] overflow-hidden':'w-full flex flex-col items-center gap-2 bg-transparent overflow-hidden'}>

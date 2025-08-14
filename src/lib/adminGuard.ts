@@ -28,8 +28,8 @@ export async function isAdminRequest(request: Request): Promise<boolean> {
   }
   // Session prüfen
   try {
-    const session = await getServerSession(authOptions);
-    const role = (session?.user as any)?.role;
+  const session = await getServerSession(authOptions);
+  const role = session?.user?.role;
     return role === 'admin';
   } catch {
     return false;

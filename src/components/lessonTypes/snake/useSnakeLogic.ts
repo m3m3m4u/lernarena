@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { Lesson } from '../types';
+import type { Lesson, LessonContent } from '../types';
 import type { Point, QuestionBlock, Food } from './types';
 import { COLS, ROWS, COLORS } from './constants';
 import { finalizeLesson } from '../../../lib/lessonCompletion';
@@ -15,12 +15,12 @@ interface Params {
 const DEFAULT_TARGET_SCORE = 15;
 
 export function useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername }: Params){
-  const content: any = (lesson as any).content || {};
-  const targetScore: number = Number(content?.targetScore) || DEFAULT_TARGET_SCORE;
-  const difficulty: 'einfach'|'mittel'|'schwer' = content?.difficulty === 'schwer' ? 'schwer' : (content?.difficulty === 'einfach' ? 'einfach' : 'mittel');
-  const initialSpeed: number = Number(content?.initialSpeedMs) || (difficulty === 'schwer' ? 140 : (difficulty === 'einfach' ? 220 : 180));
+  const content = (lesson.content as LessonContent | undefined) || {};
+  const targetScore: number = Number(content.targetScore) || DEFAULT_TARGET_SCORE;
+  const difficulty: 'einfach'|'mittel'|'schwer' = content.difficulty === 'schwer' ? 'schwer' : (content.difficulty === 'einfach' ? 'einfach' : 'mittel');
+  const initialSpeed: number = Number(content.initialSpeedMs) || (difficulty === 'schwer' ? 140 : (difficulty === 'einfach' ? 220 : 180));
 
-  const blocks = Array.isArray(content?.blocks) ? (content.blocks as QuestionBlock[]) : [];
+  const blocks = Array.isArray(content.blocks) ? (content.blocks as QuestionBlock[]) : [];
 
   const [snake, setSnake] = useState<Point[]>([{ x: 5, y: 8 }]);
   const [dir, setDir] = useState<Point>({ x: 1, y: 0 });
@@ -65,8 +65,7 @@ export function useSnakeLogic({ lesson, courseId, completedLessons, setCompleted
   useEffect(()=>{ dirRef.current = dir; },[dir]);
 
   // Initial Setup
-  useEffect(()=>{ if(blocks.length){ const q=pickNextQuestion(); if(q){ questionIdRef.current=0; lastScoredQuestionIdRef.current=-1; setCurrentQuestion(q); placeAnswerFoods(q, snake);} } else { placeFood(snake); } // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
+  useEffect(()=>{ if(blocks.length){ const q=pickNextQuestion(); if(q){ questionIdRef.current=0; lastScoredQuestionIdRef.current=-1; setCurrentQuestion(q); placeAnswerFoods(q, snake);} } else { placeFood(snake); } },[blocks.length, pickNextQuestion, placeAnswerFoods, placeFood, snake]);
 
   // Game Loop
   useEffect(()=>{ if(!running || finished) return; const id=setTimeout(()=>{ setSnake(prev=>{ const head=prev[0]; const next={ x: head.x + dirRef.current.x, y: head.y + dirRef.current.y }; if(next.x<0||next.x>=COLS||next.y<0||next.y>=ROWS){ setRunning(false); setGameOver(true); return prev; } const newBody=[next,...prev]; const collision=newBody.slice(1).some(p=>p.x===next.x && p.y===next.y); if(collision){ setRunning(false); setGameOver(true); return prev; } if(blocks.length){ const hit=foods.find(f=>f.x===next.x && f.y===next.y); if(hit){ if(hit.correct){ if(lastScoredQuestionIdRef.current!==questionIdRef.current){ lastScoredQuestionIdRef.current=questionIdRef.current; setScore(s=>s+1); requestNewQuestionRef.current=true; } } else { setRunning(false); setGameOver(true); return prev; } } else { newBody.pop(); } } else { let ate=false; if(next.x===food.x && next.y===food.y){ ate=true; setScore(s=>s+1); placeFood(newBody); } if(!ate) newBody.pop(); } return newBody; }); }, tickMs); return ()=>clearTimeout(id); },[tickMs, running, finished, food, foods, blocks.length, placeFood, placeAnswerFoods, pickNextQuestion]);

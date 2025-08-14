@@ -13,7 +13,7 @@ interface Props {
 
 export default function MediaPicker({ open, onClose, onSelect }: Props){
   const { data: session } = useSession();
-  const role = (session?.user as any)?.role as string | undefined;
+  const role = session?.user?.role as string | undefined;
   const canUpload = role === 'author' || role === 'admin';
   const { toast } = useToast();
 

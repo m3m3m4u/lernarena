@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import type { Lesson } from '../types';
+import type { Lesson, LessonContent } from '../types';
 import { useSession } from 'next-auth/react';
 import { finalizeLesson } from '../../../lib/lessonCompletion';
 import { buildQuestionBlocks } from './questions';
@@ -65,7 +65,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   };
 
   // Target Score aus lesson.content.targetScore analog Snake (Default 15)
-  const targetScore = Number((lesson as any)?.content?.targetScore) || 15;
+  const targetScore = Number((lesson.content as LessonContent | undefined)?.targetScore) || 15;
 
   // Fragenquelle: versuche lesson.content.blocks (QuestionBlock), fallback lesson.questions (MC)
   const blocks = buildQuestionBlocks(lesson);
@@ -111,8 +111,8 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   const spawnClouds = useCallback((append:boolean)=>{
     const canvas = canvasRef.current; if(!canvas) return; const ctx = canvas.getContext('2d'); if(!ctx) return;
     const q = nextQuestion(); if(!q) return;
-    const newQid = questionIdCounterRef.current + 1; questionIdCounterRef.current = newQid; setActiveQuestionId(newQid);
-    setQuestionText(q.question || (q as any).prompt || '');
+  const newQid = questionIdCounterRef.current + 1; questionIdCounterRef.current = newQid; setActiveQuestionId(newQid);
+  setQuestionText(q.question);
     setClouds(prev=>{
       const existing = append ? prev : [];
       const group = createCloudGroup(ctx, q, newQid, existing);
@@ -144,7 +144,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     const canvas = canvasRef.current; if(!canvas) return; const ctx = canvas.getContext('2d'); if(!ctx) return;
     const sysDpr = window.devicePixelRatio || 1; const dpr = Math.max(sysDpr, FORCE_MIN_DPR);
     canvas.width = Math.round(LOGICAL_WIDTH * dpr); canvas.height = Math.round(LOGICAL_HEIGHT * dpr);
-    ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'high';
+  ctx.setTransform(dpr,0,0,dpr,0,0); ctx.imageSmoothingEnabled = true; (ctx as unknown as { imageSmoothingQuality?: string }).imageSmoothingQuality = 'high';
   },[]);
 
   // Dynamische CSS-Größe (Breite füllt Container, Höhe entsprechend Seitenverhältnis)
@@ -165,8 +165,8 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
     const planeImg = new Image(); planeImg.onload=()=>{ 
       planeReadyRef.current=true; 
       // Verwende natural* oder Fallbacks
-      const natW = planeImg.naturalWidth || (planeImg as any).width || 320; 
-      const natH = planeImg.naturalHeight || (planeImg as any).height || 160; 
+  const natW = planeImg.naturalWidth || planeImg.width || 320; 
+  const natH = planeImg.naturalHeight || planeImg.height || 160; 
       const aspect = natH / natW || 0.5; 
       planeRef.current.w = PLANE_DISPLAY_WIDTH; planeRef.current.h = Math.max(20, PLANE_DISPLAY_WIDTH * aspect); 
       try {
@@ -186,7 +186,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
           planeMaskRef.current = { data: imgData.data, w: mw, h: mh };
           planeMaskReadyRef.current = true;
         }
-      } catch(err){ console.warn('Plane mask build failed', err); }
+  } catch(err){ console.warn('Plane mask build failed', err); }
     }; 
     planeImg.onerror = ()=> console.warn('PlaneGame: /media/flugzeug.svg konnte nicht geladen werden');
     planeImg.src='/media/flugzeug.svg'; planeImgRef.current=planeImg;
@@ -266,7 +266,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
               }
               // Effektparameter
               nc.speed = nc.speed * 0.55; // etwas langsamer, aber nicht komplett stoppen
-              (nc as any).wrongEffect = true;
+              // mark wrong effect via alpha fade only (no type pollution)
               wrongFlashRef.current = 1; // globaler Flash starten
             }
             collisionCooldownRef.current = 0.35; // etwas längerer Lockout
@@ -425,7 +425,7 @@ export default function PlaneGame({ lesson, courseId, completedLessons, setCompl
   useEffect(()=>{ if(!finished && score >= targetScore){ setFinished(true); if(!completedLessons.includes(lesson._id)){ (async()=>{ try{ const username=session?.user?.username; setMarking(true); await finalizeLesson({ username, lessonId: lesson._id, courseId, type: lesson.type, earnedStar: lesson.type !== 'markdown' }); setCompletedLessons(prev=> prev.includes(lesson._id)? prev: [...prev, lesson._id]); } finally { setMarking(false);} })(); } } },[score, targetScore, finished, completedLessons, lesson._id, lesson.type, courseId, session?.user?.username, setCompletedLessons]);
 
   // Skalierung aus Lesson-Content (optional)
-  const contentScaleRaw = Number((lesson as any)?.content?.planeScale);
+  const contentScaleRaw = Number((lesson.content as LessonContent | undefined)?.planeScale);
   const DISPLAY_SCALE = (!isNaN(contentScaleRaw) && contentScaleRaw>0.15 && contentScaleRaw<=1) ? contentScaleRaw : DEFAULT_DISPLAY_SCALE;
   const displayWidth = Math.round(LOGICAL_WIDTH * DISPLAY_SCALE); // bleibt für evtl. zukünftige Skalen-Logik vorhanden
 

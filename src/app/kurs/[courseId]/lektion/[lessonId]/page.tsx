@@ -1,31 +1,12 @@
 "use client";
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useMemo } from "react";
-import type { ComponentType } from "react";
 import { useSession } from 'next-auth/react';
 // Ausgelagerte Lektionstyp-Komponenten (schrittweises Refactoring)
 import { MarkdownLesson, YouTubeLesson, MemoryGame, LueckentextPlayer, OrderingPlayer, MatchingUI, LessonFooterNavigation, SnakeGame } from '../../../../../components/lessonTypes';
 import { finalizeLesson } from '../../../../../lib/lessonCompletion';
+import type { Lesson, Question } from '../../../../../components/lessonTypes/types';
 
-interface Question {
-  question: string;
-  mediaLink?: string;
-  correctAnswer: string;
-  wrongAnswers: string[];
-  allAnswers: string[];
-  // Neu: Unterstützung für Multiple-Choice
-  correctAnswers?: string[];
-}
-
-interface Lesson {
-  _id: string;
-  title: string;
-  type: string;
-  questions?: Question[];
-  content?: { markdown?: string; question?: string; answer?: string; partials?: { value: string; accept: boolean }[]; caseSensitive?: boolean } | Record<string, unknown> | null;
-  courseId: string;
-  createdAt: string;
-}
 
 export default function LessonPage() {
   const params = useParams();

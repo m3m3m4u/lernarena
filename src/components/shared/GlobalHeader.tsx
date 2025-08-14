@@ -8,9 +8,10 @@ import { useSession } from 'next-auth/react';
 export default function GlobalHeader(){
   const pathname = usePathname();
   const { data: session } = useSession();
-  const isGuest = (session?.user as any)?.role === 'guest' || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('guest') === '1');
-  const username = isGuest ? 'Gast' : ((session?.user as any)?.username || session?.user?.name || session?.user?.email || 'Gast');
-  const role = isGuest ? 'guest' : ((session?.user as any)?.role || 'anon');
+  const queryGuest = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('guest') === '1' : false;
+  const isGuest = queryGuest;
+  const username: string = isGuest ? 'Gast' : (session?.user?.username || session?.user?.name || session?.user?.email || 'Gast');
+  const role: string = isGuest ? 'guest' : (session?.user?.role || 'anon');
 
   // Links kontextabhängig
   const leftLinks = [
