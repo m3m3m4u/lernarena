@@ -369,6 +369,19 @@ function checkGhostCollision(){
 addEventListener('keydown',e=>{const k=e.key; if(k==='ArrowUp')player.nextDir={x:0,y:-1}; else if(k==='ArrowDown')player.nextDir={x:0,y:1}; else if(k==='ArrowLeft')player.nextDir={x:-1,y:0}; else if(k==='ArrowRight')player.nextDir={x:1,y:0}; else if(k==='g'||k==='G') showGrid=!showGrid; else if(k==='p'||k==='P'||k===' '){ setPaused(!paused); }});
 window.addEventListener('load',()=>{ const btn=document.getElementById('pauseBtn'); if(btn){ btn.onclick=()=>setPaused(!paused); }});
 
+// On-Screen-Steuerung (Buttons)
+function bindControlButton(id, dir){
+    const el=document.getElementById(id);
+    if(!el) return;
+    const apply=()=>{ player.nextDir = dir; };
+    el.addEventListener('click', apply);
+    el.addEventListener('touchstart', (e)=>{ e.preventDefault(); apply(); }, { passive:false });
+}
+bindControlButton('btnUp',    {x:0,y:-1});
+bindControlButton('btnDown',  {x:0,y: 1});
+bindControlButton('btnLeft',  {x:-1,y:0});
+bindControlButton('btnRight', {x:1,y: 0});
+
 function update(){
     if(paused) return; // Spielzustand einfrieren
     const EPS=0.001;

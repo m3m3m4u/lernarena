@@ -3,6 +3,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface ITeacherClass extends Document {
   name: string;
   teacher: mongoose.Types.ObjectId; // User (role=teacher)
+  courseAccess?: 'class' | 'all';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -10,6 +11,7 @@ export interface ITeacherClass extends Document {
 const TeacherClassSchema = new Schema<ITeacherClass>({
   name: { type: String, required: true },
   teacher: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  courseAccess: { type: String, enum: ['class','all'], default: 'class', index: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });

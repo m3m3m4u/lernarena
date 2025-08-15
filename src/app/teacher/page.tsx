@@ -4,7 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/shared/ToastProvider';
 
-interface TeacherClass { _id:string; name:string; }
+interface TeacherClass { _id:string; name:string; courseAccess?: 'class'|'all'; }
 interface Learner { username:string; name?:string; email?:string; class?:string; }
 
 export default function TeacherPanel(){
@@ -58,7 +58,7 @@ function TeacherPanelContent(){
         try { data = await res.json(); } catch {}
         try { dataManage = await resCoursesManage.json(); } catch {}
         try { dataAll = await resAllCourses.json(); } catch {}
-        if(res.ok && data?.success){ setClasses(data.classes); setLearners(data.learners); }
+  if(res.ok && data?.success){ setClasses(data.classes); setLearners(data.learners); }
         else setError((data && (data.error||data.message)) || `Fehler (${res.status})`);
         if(resCoursesManage.ok && dataManage?.success){ setClassCourseState(dataManage.classes||[]); }
         if(resAllCourses.ok && (dataAll?.success || Array.isArray(dataAll?.courses))){
@@ -159,7 +159,16 @@ function TeacherPanelContent(){
         <ul className="text-xs pl-0">
           {classes.map(c=> (
             <li key={c._id} className="flex items-center justify-between border-t first:border-t-0 py-1">
-              <span className="pl-2">{c.name} <span className="text-gray-400">(ID {c._id})</span></span>
+              <span className="pl-2 flex items-center gap-3">
+                <span>{c.name} <span className="text-gray-400">(ID {c._id})</span></span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="text-gray-500">Zugriff:</span>
+                  <span className="inline-flex border rounded overflow-hidden">
+                    <button type="button" onClick={async()=>{ await fetch('/api/teacher/courses/manage',{ method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'setClassCourseScope', classId: c._id, scope: 'class' }) }); load(); }} className={(c.courseAccess!=='all'?'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-2 py-0.5 border-r"}>Nur Klassenkurse</button>
+                    <button type="button" onClick={async()=>{ await fetch('/api/teacher/courses/manage',{ method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'setClassCourseScope', classId: c._id, scope: 'all' }) }); load(); }} className={(c.courseAccess==='all'?'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-2 py-0.5"}>Alle Kurse</button>
+                  </span>
+                </span>
+              </span>
               <div className="flex items-center gap-2 pr-2">
                 <button
                   onClick={async()=>{

@@ -77,7 +77,7 @@ function AdminTeacherManageInner(){
   }
 
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-8">
+    <main className="max-w-6xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
         <a href="/admin/users" className="text-sm text-blue-600 hover:underline">← Zurück</a>
         <h1 className="text-2xl font-bold">Admin: Klassen & Lernende verwalten</h1>
@@ -161,7 +161,7 @@ function AdminTeacherManageInner(){
 
 export default function AdminTeacherManagePage(){
   return (
-    <Suspense fallback={<main className="max-w-5xl mx-auto p-6"><div className="text-sm text-gray-500">Lade…</div></main>}>
+  <Suspense fallback={<main className="max-w-6xl mx-auto p-6"><div className="text-sm text-gray-500">Lade…</div></main>}>
       <AdminTeacherManageInner />
     </Suspense>
   );

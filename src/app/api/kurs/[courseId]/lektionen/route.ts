@@ -70,9 +70,21 @@ export async function GET(
       if (!classId) {
         return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
       }
-      const hasAccess = await ClassCourseAccess.exists({ class: classId, course: courseId });
-      if (!hasAccess) {
-        return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+      // Klassenmodus prüfen
+      const TeacherClass = (await import('@/models/TeacherClass')).default;
+      const cls = await TeacherClass.findById(classId).select('courseAccess').lean();
+      const mode = (cls as any)?.courseAccess === 'all' ? 'all' : 'class';
+      if (mode === 'class') {
+        const hasAccess = await ClassCourseAccess.exists({ class: classId, course: courseId });
+        if (!hasAccess) {
+          return NextResponse.json({ success: false, error: 'Kein Zugriff auf diesen Kurs' }, { status: 403 });
+        }
+      } else {
+        // 'all' -> nur veröffentlichte Kurse
+        const course = await Course.findById(courseId).select('isPublished').lean();
+        if (!course?.isPublished) {
+          return NextResponse.json({ success: false, error: 'Kurs ist nicht veröffentlicht' }, { status: 403 });
+        }
       }
     }
     // Gäste/Anonyme: nur veröffentlichte Kurse

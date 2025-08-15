@@ -32,9 +32,11 @@ export default function AdminUsersPage(){
     try {
       // Initial: vollständige Liste für die oberen Abschnitte (keine Filter/Pagination)
       const res = await fetch('/api/admin/users');
-      const data = await res.json();
-      if(res.ok && data.success){ setUsers(data.users); setTotal(data.total ?? data.users.length); }
-      else setError(data.error||'Fehler');
+      const ct = res.headers.get('content-type') || '';
+      let data: any = null;
+      try { data = ct.includes('application/json') ? await res.json() : { success:false, error: await res.text() }; } catch { /* ignore parse */ }
+      if(res.ok && data?.success){ setUsers(data.users); setTotal(data.total ?? data.users.length); }
+      else setError(data?.error || `Fehler (${res.status})`);
     } catch { setError('Netzwerkfehler'); }
     setLoading(false);
   }
@@ -103,10 +105,12 @@ export default function AdminUsersPage(){
         params.set('page', String(page));
         params.set('pageSize', String(PAGE_SIZE));
         const res = await fetch('/api/admin/users?'+params.toString());
-        const data = await res.json();
+        const ct = res.headers.get('content-type') || '';
+        let data: any = null;
+        try { data = ct.includes('application/json') ? await res.json() : { success:false, error: await res.text() }; } catch { /* ignore parse */ }
         if(!abort){
-          if(res.ok && data.success){ setTableRows(data.users); setTotal(data.total); }
-          else setError(data.error||'Fehler');
+          if(res.ok && data?.success){ setTableRows(data.users); setTotal(data.total); }
+          else setError(data?.error || `Fehler (${res.status})`);
         }
       } catch { if(!abort) setError('Netzwerkfehler'); }
       if(!abort) setLoading(false);
@@ -116,7 +120,7 @@ export default function AdminUsersPage(){
   }, [query, page, PAGE_SIZE, (session?.user as any)?.role]);
 
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-10">
+    <main className="max-w-6xl mx-auto p-6 space-y-10">
       <div className="flex items-center justify-between">
   <a href="/dashboard" className="text-sm text-blue-600 hover:underline">← Zurück zur Startseite</a>
         <h1 className="text-2xl font-bold">Benutzerverwaltung</h1>

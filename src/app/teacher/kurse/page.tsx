@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useToast } from '@/components/shared/ToastProvider';
 import MediaLibrary from '@/components/media/MediaLibrary';
 
-interface TeacherClass { _id:string; name:string; }
+interface TeacherClass { _id:string; name:string; courseAccess?: 'class'|'all'; }
 interface CourseDB { _id:string; title:string; description?:string; category?:string; isPublished?:boolean; author?:string; }
 
 const CATEGORIES = [
@@ -82,7 +82,7 @@ function TeacherCoursesContent(){
       const dm = await resManage.json().catch(()=>({}));
       const da = await resAll.json().catch(()=>({}));
       if(resManage.ok && dm?.success){
-        const cls = (dm.classes||[]) as { _id:string; name:string }[];
+        const cls = (dm.classes||[]) as { _id:string; name:string; courseAccess?: 'class'|'all' }[];
         setClasses(cls);
         if(!selectedFreigabeClassId && cls.length>0){ setSelectedFreigabeClassId(String(cls[0]._id)); }
       } else setError(dm?.error||'Fehler beim Laden der Klassen');
@@ -244,7 +244,19 @@ function TeacherCoursesContent(){
           {classes.length===0 && <div className="text-sm text-gray-500">Keine Klassen vorhanden.</div>}
           {classes.length>0 && selectedFreigabeClassId && (
             <div className="bg-white border rounded p-4">
-              <div className="text-sm font-semibold mb-2">{classes.find(c=>c._id===selectedFreigabeClassId)?.name}</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-semibold">{classes.find(c=>c._id===selectedFreigabeClassId)?.name}</div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-600">Zugriff für Lernende:</span>
+                  <ScopeToggle
+                    value={(classes.find(c=>c._id===selectedFreigabeClassId)?.courseAccess)||'class'}
+                    onChange={async (next)=>{
+                      await fetch('/api/teacher/courses/manage', { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'setClassCourseScope', classId: selectedFreigabeClassId, scope: next }) });
+                      await load();
+                    }}
+                  />
+                </div>
+              </div>
               <ClassAssignments classId={selectedFreigabeClassId} lessonCounts={lessonCounts} onRemove={(cid)=>removeFromClass(selectedFreigabeClassId, cid)} />
             </div>
           )}
@@ -259,6 +271,25 @@ function TeacherCoursesContent(){
 
   {/* Tab "neu" entfernt im Teacher-Kontext */}
     </main>
+  );
+}
+
+function ScopeToggle({ value, onChange }:{ value:'class'|'all'; onChange:(v:'class'|'all')=>void }){
+  return (
+    <div className="inline-flex border rounded overflow-hidden">
+      <button
+        type="button"
+        onClick={()=>onChange('class')}
+        className={(value==='class'?'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-2 py-1 border-r"}
+        title="Nur Klassenkurse: Lernende sehen nur freigegebene Kurse"
+  >Nur Klassenkurse</button>
+      <button
+        type="button"
+        onClick={()=>onChange('all')}
+        className={(value==='all'?'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-2 py-1"}
+        title="Alle Kurse: Lernende sehen alle veröffentlichten Kurse"
+      >Alle Kurse</button>
+    </div>
   );
 }
 

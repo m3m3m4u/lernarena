@@ -63,7 +63,6 @@ export default function LoginPage() {
           Hinweis: Im Gastmodus werden Fortschritte und Einstellungen nur lokal im Browser gespeichert.
         </p>
       </div>
-      <p className="mt-2 text-xs text-gray-500">Demo-Login (lokal ohne DB): Benutzername: <strong>Kopernikus</strong> Passwort: <strong>12345</strong></p>
     </div>
   );
 }
