@@ -23,3 +23,25 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* Sticky edge shadows for tables */
+.sticky-edge-left::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 100%;
+  width: 8px;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(to right, rgba(0,0,0,0.08), rgba(0,0,0,0));
+}
+.sticky-edge-right::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 100%;
+  width: 8px;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(0,0,0,0.08), rgba(0,0,0,0));
+}
