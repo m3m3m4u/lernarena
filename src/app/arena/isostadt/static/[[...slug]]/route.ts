@@ -61,8 +61,12 @@ function injectBaseAndCss(html: string, basePath: string) {
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: Request, ctx: { params: { slug?: string[] } }) {
-  const slugArr = ctx.params.slug ?? [];
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ slug?: string[] }> }
+) {
+  const { slug } = await ctx.params;
+  const slugArr = slug ?? [];
   const relPath = slugArr.length === 0 ? "index.html" : slugArr.join("/");
   const absPath = path.resolve(ROOT, relPath);
 
