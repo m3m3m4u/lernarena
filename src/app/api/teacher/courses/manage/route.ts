@@ -26,7 +26,7 @@ export async function GET(req: NextRequest){
   if(role!=='teacher') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
   if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
 
-  const classes = await TeacherClass.find({ teacher: teacherId }, '_id name').lean();
+  const classes = await TeacherClass.find({ teacher: teacherId }, '_id name courseAccess').lean();
   const classIds = classes.map(c=>String(c._id));
   const accesses = await ClassCourseAccess.find({ class: { $in: classIds } }).lean();
   const courseIds = accesses.map(a=>String(a.course));
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest){
     if(!byClass[cid]) byClass[cid] = [];
     byClass[cid].push({ course: { ...course, _id: String(course._id) }, mode: a.mode, accessId: String((a as any)._id) });
   });
-  return NextResponse.json({ success:true, classes: classes.map(c=>({ _id:String(c._id), name:c.name, courses: byClass[String(c._id)]||[] })) });
+  return NextResponse.json({ success:true, classes: classes.map(c=>({ _id:String(c._id), name:c.name, courseAccess: (c as any).courseAccess||'class', courses: byClass[String(c._id)]||[] })) });
 }
 
 export async function POST(req: NextRequest){
@@ -160,6 +160,34 @@ export async function POST(req: NextRequest){
     return NextResponse.json({ success:true, newCourseId: String(newCourse._id) });
   }
   return NextResponse.json({ success:false, error:'Unbekannte Aktion' }, { status:400 });
+}
+
+export async function PATCH(req: NextRequest){
+  try {
+    await dbConnect();
+    const session = await getServerSession(authOptions);
+    const role = (session?.user as any)?.role;
+    let teacherId = (session?.user as any)?.id as string | undefined;
+    if(!teacherId && (session?.user as any)?.username){
+      const self = await User.findOne({ username: (session?.user as any)?.username }, '_id').lean();
+      if(self) teacherId = String(self._id);
+    }
+    if(role!=='teacher') return NextResponse.json({ success:false, error:'Unauthorized' }, { status:403 });
+    if(!teacherId) return NextResponse.json({ success:false, error:'Teacher-Kontext fehlt' }, { status:400 });
+    const body = await req.json().catch(()=>({}));
+    const { action } = body || {};
+    if(action==='setClassCourseScope'){
+      const { classId, scope } = body as any;
+      if(!isValidObjectId(classId)) return NextResponse.json({ success:false, error:'Ungültige classId' }, { status:400 });
+      if(scope!=='class' && scope!=='all') return NextResponse.json({ success:false, error:'Ungültiger scope' }, { status:400 });
+      const updated = await TeacherClass.findOneAndUpdate({ _id: classId, teacher: teacherId }, { $set: { courseAccess: scope } }, { new: true });
+      if(!updated) return NextResponse.json({ success:false, error:'Klasse nicht gefunden' }, { status:404 });
+      return NextResponse.json({ success:true, classId: String(updated._id), scope });
+    }
+    return NextResponse.json({ success:false, error:'Unbekannte Aktion' }, { status:400 });
+  } catch(e:any){
+    return NextResponse.json({ success:false, error:'Fehler', message: String(e?.message||e) }, { status:500 });
+  }
 }
 
 export async function DELETE(req: NextRequest){

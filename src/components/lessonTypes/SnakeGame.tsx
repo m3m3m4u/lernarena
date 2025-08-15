@@ -34,7 +34,7 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
     return ()=> window.removeEventListener('keydown', handler);
   },[]);
   const { data: session } = useSession();
-  const { snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking, setShowHelp, setRunning, restart, blocksLength, setDirection } = useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername: session?.user?.username });
+  const { snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking, tickMs, setShowHelp, setRunning, restart, blocksLength, setDirection, setTickMs } = useSnakeLogic({ lesson, courseId, completedLessons, setCompletedLessons, sessionUsername: session?.user?.username });
   const canvasRef = useSnakeRendering({ snake, foods, food, blocksLength, score, finished, targetScore });
 
   // Fullscreen API helpers
@@ -172,6 +172,12 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
               ) : (
                 <button onClick={exitFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white">Vollbild beenden</button>
               )}
+              <span className="inline-flex items-center gap-1 ml-1 select-none">
+                <span className="text-[11px] text-gray-600 mr-1">Tempo:</span>
+                <button onClick={()=> setTickMs(600)} className="px-2 py-1 rounded border bg-gray-50 hover:bg-white">Langsam</button>
+                <button onClick={()=> setTickMs(420)} className="px-2 py-1 rounded border bg-gray-50 hover:bg-white">Mittel</button>
+                <button onClick={()=> setTickMs(300)} className="px-2 py-1 rounded border bg-gray-50 hover:bg-white">Schnell</button>
+              </span>
             </div>
           )}
           {blocksLength>0 && currentQuestion && !(finished || gameOver) && (
@@ -241,7 +247,7 @@ export default function SnakeGame({ lesson, courseId, completedLessons, setCompl
                     <button onClick={exitFullscreen} className="px-3 py-1 rounded border bg-gray-50 hover:bg-white text-xs">Vollbild beenden</button>
                   )}
                 </div>
-                {blocksLength>0 && <div className="mt-1 text-[11px] text-gray-600 max-w-[260px]">Steuere die Schlange zur Farbe der richtigen Antwort. Space oder Button startet.</div>}
+                {blocksLength>0 && <div className="mt-1 text-[11px] text-gray-600 max-w-[260px]">Steuere die Schlange zur Farbe der richtigen Antwort. Space oder Button startet. Tempo: {Math.round(tickMs)} ms/Schritt</div>}
               </div>
             )}
             {finished && score >= targetScore && (

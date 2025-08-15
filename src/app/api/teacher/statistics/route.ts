@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
 
   const url = new URL(req.url);
   const classId = url.searchParams.get('classId') || '';
+  const mode = (url.searchParams.get('mode') === 'all') ? 'all' : 'class';
   if (!classId || !isValidObjectId(classId)) {
     return NextResponse.json({ success: false, error: 'classId fehlt/ungültig' }, { status: 400 });
   }
@@ -48,11 +49,20 @@ export async function GET(req: NextRequest) {
   const cls = await TeacherClass.findOne({ _id: classId, teacher: teacherId }, '_id name').lean();
   if (!cls) return NextResponse.json({ success: false, error: 'Klasse nicht gefunden' }, { status: 404 });
 
-  const accesses = await ClassCourseAccess.find({ class: classId }, '_id course mode').lean();
-  const courseIds = accesses.map(a => String(a.course));
-  const courses = courseIds.length
-    ? await Course.find({ _id: { $in: courseIds } }, '_id title description category createdAt updatedAt').lean()
-    : [];
+  let courses: any[] = [];
+  let courseIds: string[] = [];
+  if (mode === 'class') {
+    const accesses = await ClassCourseAccess.find({ class: classId }, '_id course mode').lean();
+    courseIds = accesses.map(a => String(a.course));
+    courses = courseIds.length
+      ? await Course.find({ _id: { $in: courseIds } }, '_id title description category createdAt updatedAt').lean()
+      : [];
+  } else {
+    // Alle veröffentlichten Kurse (Lehrer will Überblick über public Inhalte)
+    const all = await Course.find({ isPublished: true }, '_id title description category createdAt updatedAt').lean();
+    courses = all;
+    courseIds = all.map(c => String((c as any)._id));
+  }
   const lessonsByCourse: Record<string, string[]> = {};
   if (courseIds.length) {
     const lessons = await Lesson.find({ courseId: { $in: courseIds } }, '_id courseId').lean();
@@ -88,6 +98,7 @@ export async function GET(req: NextRequest) {
     success: true,
     class: { _id: String((cls as any)._id), name: (cls as any).name },
     courses: courses.map(c => ({ _id: String((c as any)._id), title: (c as any).title, totalLessons: (lessonsByCourse[String((c as any)._id)] || []).length })),
-    learners: resultLearners
+    learners: resultLearners,
+    mode
   });
 }

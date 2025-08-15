@@ -31,9 +31,23 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
     const url = new URL(req.url);
     const showAll = url.searchParams.get("showAll") === "1";
+  const requestedMode = (url.searchParams.get('mode') || '').toLowerCase() === 'all' ? 'all' : 'class';
+    // Kategorie-Filter (?cat=)
+    const rawCat = url.searchParams.get("cat");
+    const normalizedCat = (() => {
+      if (!rawCat) return undefined;
+      const v = String(rawCat).trim();
+      if (!v || /^(alle|all|any)$/i.test(v)) return undefined; // keine Einschränkung
+      // Nur erlaubte Kategorien zulassen, sonst ignorieren
+      const found = ALLOWED_CATEGORIES.find(c => c.toLowerCase() === v.toLowerCase());
+      return found || undefined;
+    })();
     const filter: Record<string, unknown> = showAll ? {} : { isPublished: true };
+    if (normalizedCat) filter.category = normalizedCat;
 
-    let courses: LeanCourse[] = [];
+  let courses: LeanCourse[] = [];
+  let learnerScope: 'class' | 'all' | undefined = undefined; // was ist grundsätzlich erlaubt?
+  let activeMode: 'class' | 'all' | undefined = undefined;   // was wurde angewendet?
     // Rollen-/Klassenlogik: Lernende in Klassen sehen nur freigeschaltete Kurse.
     const role = (session?.user as any)?.role as string | undefined;
     const username = (session?.user as any)?.username as string | undefined;
@@ -42,13 +56,28 @@ export async function GET(req: NextRequest) {
       const me = await User.findOne({ username }, '_id class').lean();
       const classId = me?.class ? String(me.class) : null;
       if (classId) {
-        const accesses = await ClassCourseAccess.find({ class: classId }).lean();
-        const allowedCourseIds = accesses.map(a => String(a.course));
-        if (allowedCourseIds.length === 0) {
-          courses = [];
+        // Klassenmodus prüfen: 'all' => alle veröffentlichten Kurse sichtbar; 'class' => nur freigegebene
+        const TeacherClass = (await import('@/models/TeacherClass')).default;
+        const cls = await TeacherClass.findById(classId).select('courseAccess').lean();
+        const allowed = (cls as any)?.courseAccess === 'all' ? 'all' : 'class';
+        learnerScope = allowed;
+        const effective = allowed === 'all' && requestedMode === 'all' ? 'all' : 'class';
+        activeMode = effective;
+        if (effective === 'class') {
+          const accesses = await ClassCourseAccess.find({ class: classId }).lean();
+          const allowedCourseIds = accesses.map(a => String(a.course));
+          if (allowedCourseIds.length === 0) {
+            courses = [];
+          } else {
+            const f: Record<string, unknown> = { _id: { $in: allowedCourseIds } };
+            if (!showAll) f.isPublished = true;
+            if (normalizedCat) f.category = normalizedCat;
+            courses = await Course.find(f).sort({ createdAt: -1 }).lean();
+          }
         } else {
-          const f: Record<string, unknown> = { _id: { $in: allowedCourseIds } };
+          const f: Record<string, unknown> = {};
           if (!showAll) f.isPublished = true;
+          if (normalizedCat) f.category = normalizedCat;
           courses = await Course.find(f).sort({ createdAt: -1 }).lean();
         }
       } else {
@@ -73,7 +102,7 @@ export async function GET(req: NextRequest) {
       lessonCount: countMap[String(c._id)] || 0
     }));
 
-  return NextResponse.json({ success: true, courses: coursesWithCounts });
+  return NextResponse.json({ success: true, courses: coursesWithCounts, learnerScope, activeMode });
   } catch (error: unknown) {
     console.error("Fehler beim Laden der Kurse:", error);
     return NextResponse.json(

@@ -18,7 +18,14 @@ export function useSnakeLogic({ lesson, courseId, completedLessons, setCompleted
   const content = (lesson.content as LessonContent | undefined) || {};
   const targetScore: number = Number(content.targetScore) || DEFAULT_TARGET_SCORE;
   const difficulty: 'einfach'|'mittel'|'schwer' = content.difficulty === 'schwer' ? 'schwer' : (content.difficulty === 'einfach' ? 'einfach' : 'mittel');
-  const initialSpeed: number = Number(content.initialSpeedMs) || (difficulty === 'schwer' ? 140 : (difficulty === 'einfach' ? 220 : 180));
+  // Harte Grenzen, damit es nie zu schnell wird
+  const MIN_TICK = 300; // ms pro Schritt (Minimum)
+  const MAX_TICK = 1500; // ms pro Schritt (Maximum)
+  // Deutlich langsamere Defaults (überschreibbar via content.initialSpeedMs, aber geklemmt)
+  const defaultByDiff = difficulty === 'schwer' ? 400 : (difficulty === 'einfach' ? 600 : 500);
+  const requested = Number((content as any).initialSpeedMs);
+  const base = Number.isFinite(requested) && requested > 0 ? requested : defaultByDiff;
+  const initialSpeed: number = Math.min(MAX_TICK, Math.max(MIN_TICK, base));
 
   const blocks = Array.isArray(content.blocks) ? (content.blocks as QuestionBlock[]) : [];
 
@@ -64,14 +71,39 @@ export function useSnakeLogic({ lesson, courseId, completedLessons, setCompleted
   useEffect(()=>{ const handle=(e:KeyboardEvent)=>{ if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].includes(e.key)) e.preventDefault(); if(e.key===' '){ if(!finished && !gameOver) setRunning(r=>!r); return; } if(!running||finished||gameOver) return; if(e.key==='ArrowUp' && dirRef.current.y!==1) setDir({x:0,y:-1}); else if(e.key==='ArrowDown' && dirRef.current.y!==-1) setDir({x:0,y:1}); else if(e.key==='ArrowLeft' && dirRef.current.x!==1) setDir({x:-1,y:0}); else if(e.key==='ArrowRight' && dirRef.current.x!==-1) setDir({x:1,y:0}); }; window.addEventListener('keydown',handle); return ()=>window.removeEventListener('keydown',handle); },[running, finished, gameOver]);
   useEffect(()=>{ dirRef.current = dir; },[dir]);
 
-  // Initial Setup
-  useEffect(()=>{ if(blocks.length){ const q=pickNextQuestion(); if(q){ questionIdRef.current=0; lastScoredQuestionIdRef.current=-1; setCurrentQuestion(q); placeAnswerFoods(q, snake);} } else { placeFood(snake); } },[blocks.length, pickNextQuestion, placeAnswerFoods, placeFood, snake]);
+  // Initial Setup – nur bei Blocks-Änderung, nicht bei jeder Bewegung
+  useEffect(()=>{
+    if(blocks.length){
+      const q = pickNextQuestion();
+      if(q){
+        questionIdRef.current = 0;
+        lastScoredQuestionIdRef.current = -1;
+        setCurrentQuestion(q);
+        placeAnswerFoods(q, snake);
+      }
+    } else {
+      placeFood(snake);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blocks.length]);
 
   // Game Loop
   useEffect(()=>{ if(!running || finished) return; const id=setTimeout(()=>{ setSnake(prev=>{ const head=prev[0]; const next={ x: head.x + dirRef.current.x, y: head.y + dirRef.current.y }; if(next.x<0||next.x>=COLS||next.y<0||next.y>=ROWS){ setRunning(false); setGameOver(true); return prev; } const newBody=[next,...prev]; const collision=newBody.slice(1).some(p=>p.x===next.x && p.y===next.y); if(collision){ setRunning(false); setGameOver(true); return prev; } if(blocks.length){ const hit=foods.find(f=>f.x===next.x && f.y===next.y); if(hit){ if(hit.correct){ if(lastScoredQuestionIdRef.current!==questionIdRef.current){ lastScoredQuestionIdRef.current=questionIdRef.current; setScore(s=>s+1); requestNewQuestionRef.current=true; } } else { setRunning(false); setGameOver(true); return prev; } } else { newBody.pop(); } } else { let ate=false; if(next.x===food.x && next.y===food.y){ ate=true; setScore(s=>s+1); placeFood(newBody); } if(!ate) newBody.pop(); } return newBody; }); }, tickMs); return ()=>clearTimeout(id); },[tickMs, running, finished, food, foods, blocks.length, placeFood, placeAnswerFoods, pickNextQuestion]);
 
-  // After scoring -> new question
-  useEffect(()=>{ if(requestNewQuestionRef.current && !gameOver && !finished){ requestNewQuestionRef.current=false; const nq=pickNextQuestion(); if(nq){ questionIdRef.current +=1; setCurrentQuestion(nq); placeAnswerFoods(nq, snake); } } },[score, gameOver, finished, pickNextQuestion, placeAnswerFoods, snake]);
+  // After scoring -> new question (nur wenn Score sich ändert)
+  useEffect(()=>{
+    if(requestNewQuestionRef.current && !gameOver && !finished){
+      requestNewQuestionRef.current = false;
+      const nq = pickNextQuestion();
+      if(nq){
+        questionIdRef.current += 1;
+        setCurrentQuestion(nq);
+        // platziere Antworten bezogen auf aktuelle Snake-Position
+        placeAnswerFoods(nq, snake);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [score]);
 
   // Completion
   useEffect(()=>{ if(finished) return; if(score >= targetScore && !completedLessons.includes(lesson._id)){ setFinished(true); (async()=>{ try { if(lastScorePostedRef.current >= targetScore) return; lastScorePostedRef.current = targetScore; setMarking(true); await finalizeLesson({ username: sessionUsername, lessonId: lesson._id, courseId, type: lesson.type, earnedStar: lesson.type !== 'markdown' }); setCompletedLessons(prev=> prev.includes(lesson._id)? prev: [...prev, lesson._id]); } finally { setMarking(false);} })(); } },[score, targetScore, finished, completedLessons, lesson._id, lesson.type, courseId, sessionUsername, setCompletedLessons]);
@@ -89,8 +121,9 @@ export function useSnakeLogic({ lesson, courseId, completedLessons, setCompleted
   return {
     // state
     snake, foods, food, score, running, finished, gameOver, showHelp, currentQuestion, targetScore, marking,
+    tickMs,
     // actions
-    setShowHelp, setRunning, restart, setDirection,
+    setShowHelp, setRunning, restart, setDirection, setTickMs,
     // meta
     blocksLength: blocks.length,
   };

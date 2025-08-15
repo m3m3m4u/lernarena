@@ -15,13 +15,13 @@ export default function GlobalHeader(){
 
   // Links kontextabhängig
   const leftLinks = [
+    { href: '/dashboard', label: 'Startseite' },
     { href: '/lernen', label: 'Kurse' },
     { href: '/ueben', label: 'Übungen' },
-    { href: '/dashboard', label: 'Startseite' },
   ];
   const teacherExtras = [
-    { href: '/teacher', label: 'Lehrer' },
-    { href: '/teacher/kurse', label: 'Kurse' },
+    { href: '/teacher', label: 'Klassenverwaltung' },
+    { href: '/teacher/kurse', label: 'Kurse zuordnen' },
     { href: '/teacher/statistik', label: 'Statistik' },
   ];
   const authorExtras = [ { href: '/autor', label: 'Autor' } ];
@@ -49,7 +49,7 @@ export default function GlobalHeader(){
             <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs" title="Gastmodus: Daten werden nur lokal gespeichert">Nur lokal</span>
           )}
           {session ? (
-            <button onClick={()=>signOut()} className="ml-2 px-2 py-1 border rounded hover:bg-gray-50">Logout</button>
+            <button onClick={()=>signOut({ callbackUrl: '/login', redirect: true })} className="ml-2 px-2 py-1 border rounded hover:bg-gray-50">Logout</button>
           ) : (
             <Link href="/login" className="ml-2 px-2 py-1 border rounded hover:bg-gray-50">Login</Link>
           )}

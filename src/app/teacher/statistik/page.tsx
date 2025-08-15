@@ -16,6 +16,7 @@ type LearnerRow = {
 export default function TeacherStatisticsPage(){
   const [classes, setClasses] = useState<TeacherClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<string>("");
+  const [mode, setMode] = useState<'class'|'all'>('class');
   const [loading, setLoading] = useState(false);
   const [courses, setCourses] = useState<CourseInfo[]>([]);
   const [learners, setLearners] = useState<LearnerRow[]>([]);
@@ -45,7 +46,7 @@ export default function TeacherStatisticsPage(){
     setError(null);
     (async()=>{
       try{
-        const res = await fetch(`/api/teacher/statistics?classId=${encodeURIComponent(selectedClass)}`);
+    const res = await fetch(`/api/teacher/statistics?classId=${encodeURIComponent(selectedClass)}&mode=${mode}`);
         const d = await res.json();
         if(res.ok && d.success){
           setCourses(d.courses||[]);
@@ -56,7 +57,7 @@ export default function TeacherStatisticsPage(){
       } catch(e:any){ setError('Netzwerkfehler beim Laden der Statistik'); }
       finally { setLoading(false); }
     })();
-  },[selectedClass]);
+  },[selectedClass, mode]);
 
   const columns = useMemo(()=>{
     return [
@@ -68,7 +69,7 @@ export default function TeacherStatisticsPage(){
   },[courses]);
 
   return (
-    <main className="max-w-7xl mx-auto p-6">
+    <main className="max-w-6xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Statistik</h1>
         <div className="flex gap-2">
@@ -77,13 +78,25 @@ export default function TeacherStatisticsPage(){
       </div>
 
       <div className="bg-white border rounded p-4 mb-4">
-        <label className="block text-sm font-medium mb-2">Klasse wählen</label>
-        <select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)} className="border rounded px-3 py-2 min-w-[280px]">
-          <option value="">– Klasse auswählen –</option>
-          {classes.map(c=> (
-            <option key={c._id} value={c._id}>{c.name}</option>
-          ))}
-        </select>
+        <div className="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Klasse wählen</label>
+            <select value={selectedClass} onChange={e=>setSelectedClass(e.target.value)} className="border rounded px-3 py-2 min-w-[280px]">
+              <option value="">– Klasse auswählen –</option>
+              {classes.map(c=> (
+                <option key={c._id} value={c._id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Kursumfang</label>
+            <div className="inline-flex border rounded overflow-hidden">
+              <button type="button" className={(mode==='class'? 'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-3 py-2 border-r"} onClick={()=>setMode('class')}>Klassenkurse</button>
+              <button type="button" className={(mode==='all'? 'bg-blue-600 text-white':'bg-white text-gray-700 hover:bg-gray-50')+" px-3 py-2"} onClick={()=>setMode('all')}>Alle Kurse</button>
+            </div>
+            <div className="text-xs text-gray-500 mt-1">{mode==='class' ? 'Nur der Klasse zugeordnete Kurse' : 'Alle veröffentlichten Kurse'}</div>
+          </div>
+        </div>
       </div>
 
       {error && <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded mb-4">{error}</div>}

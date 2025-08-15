@@ -91,7 +91,7 @@ export default function DashboardPage() {
   <section className="bg-white rounded shadow p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold">Dein Profil</h2>
-            <button onClick={() => signOut()} className="bg-red-600 text-white py-2 px-4 rounded text-sm hover:bg-red-700">Logout</button>
+            <button onClick={() => signOut({ callbackUrl: '/login', redirect: true })} className="bg-red-600 text-white py-2 px-4 rounded text-sm hover:bg-red-700">Logout</button>
           </div>
           {error && <div className="text-red-600 text-sm mb-4">{error}</div>}
           {loadingUser && !user ? (

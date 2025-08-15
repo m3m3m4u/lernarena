@@ -48,9 +48,10 @@ export async function middleware(req: NextRequest) {
       return NextResponse.next();
     }
     // JWT Token (next-auth)
-  const token = await getToken({ req });
-  const role = (token && typeof token === 'object' ? (token as Record<string, unknown>).role as string | undefined : undefined);
-    if (role === 'author' || role === 'admin') {
+    const token = await getToken({ req });
+    const role = (token && typeof token === 'object' ? (token as Record<string, unknown>).role as string | undefined : undefined);
+    // Admin-only für /api/admin – konsistent zu serverseitigem Guard
+    if (role === 'admin') {
       return NextResponse.next();
     }
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

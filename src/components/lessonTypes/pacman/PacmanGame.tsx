@@ -278,11 +278,12 @@ export default function PacmanGame({ lesson, courseId, completedLessons, setComp
             <span className="flex items-center gap-1">Leben: {Array.from({length:MAX_LIVES}).map((_,i)=>(<span key={i} className={i<lives? 'text-red-400':'text-gray-600'}>❤</span>))}</span>
             <button onClick={()=> setPaused(p=>!p)} className={`rounded border font-semibold tracking-wide transition ${isFullscreen? 'px-5 py-2 text-[0.9rem]':'px-3 py-1 text-[0.65rem]'} ${paused? 'bg-lime-400 text-[#102] border-lime-500':'bg-[#2d3d55] text-white border-[#456282] hover:bg-[#38506e]'}`}>{paused? 'Weiter':'Pause'}</button>
             <button onClick={toggleFullscreen} className={`rounded border font-semibold tracking-wide bg-[#2d3d55] text-white border-[#456282] hover:bg-[#38506e] ${isFullscreen? 'px-5 py-2 text-[0.9rem]':'px-3 py-1 text-[0.65rem]'}`}>{isFullscreen? 'Zurück':'Vollbild'}</button>
-            <div className="flex items-center gap-1 select-none" title="Debug Speed">
-              <button onClick={()=> setSpeedFactor(f=> Math.max(0.05, f*0.5))} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">½</button>
-              <button onClick={()=> setSpeedFactor(f=> Math.min(4, f*0.75))} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">¾</button>
-              <span className="text-[0.65rem]">{speedFactor.toFixed(2)}x</span>
-              <button onClick={()=> setSpeedFactor(f=> Math.min(4, f*1.5))} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">1.5×</button>
+            <div className="flex items-center gap-1 select-none" title="Temposteuerung">
+              <span className="opacity-70 text-[0.65rem] mr-1">Tempo:</span>
+              <button onClick={()=> setSpeedFactor(0.6)} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">Langsam</button>
+              <button onClick={()=> setSpeedFactor(1.0)} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">Mittel</button>
+              <button onClick={()=> setSpeedFactor(1.4)} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">Schnell</button>
+              <button onClick={()=> setSpeedFactor(2.0)} className="px-2 py-1 bg-[#394a63] hover:bg-[#455b79] rounded text-[0.65rem]">Sehr schnell</button>
             </div>
           </div>
         </div>

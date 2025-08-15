@@ -9,13 +9,25 @@ export async function GET(req: NextRequest) {
   try {
     await dbConnect();
     const url = new URL(req.url);
+    const rawCat = url.searchParams.get('cat');
+    const normalizedCat = (() => {
+      if (!rawCat) return undefined;
+      const v = String(rawCat).trim();
+      if (!v || /^(alle|all|any)$/i.test(v)) return undefined;
+      return v; // bei Übungen akzeptieren wir freie Kategorien; Schema validiert optional
+    })();
     const lessonId = url.searchParams.get('lessonId');
     if (lessonId) {
       const lesson = await Lesson.findById(lessonId).lean();
       if (!lesson || !lesson.isExercise) return NextResponse.json({ success: false, error: 'Übung nicht gefunden' }, { status: 404 });
       return NextResponse.json({ success: true, exercise: lesson });
     }
-  const lessons = await Lesson.find({ isExercise: true }).select('_id title type createdAt content courseId questions category').sort({ createdAt: -1 }).lean();
+    const findFilter: Record<string, unknown> = { isExercise: true };
+    if (normalizedCat) findFilter.category = normalizedCat;
+    const lessons = await Lesson.find(findFilter)
+      .select('_id title type createdAt content courseId questions category')
+      .sort({ createdAt: -1 })
+      .lean();
     return NextResponse.json({ success: true, exercises: lessons });
   } catch (e) {
     return NextResponse.json({ success: false, error: 'Fehler beim Laden der Übungen' }, { status: 500 });
