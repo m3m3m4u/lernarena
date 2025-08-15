@@ -94,6 +94,16 @@ export default function AdminUsersPage(){
   const teachers = users.filter(u=>u.role==='teacher');
   const authors = users.filter(u=>u.role==='author');
 
+  // Spalten-Definitionen außerhalb von JSX, um Hook-Regeln einzuhalten
+  const teachersColumns = useMemo(() => ([
+    { key:'username', header:'Username', sticky:true },
+    { key:'name', header:'Name' },
+    { key:'email', header:'E-Mail' },
+    { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(t:any)=> (
+      <a href={`/admin/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Klassen verwalten</a>
+    )},
+  ]), []);
+
   // Untere Tabelle: serverseitig filtern/paginieren
   const [tableRows, setTableRows] = useState<UserRow[]>([]);
   useEffect(()=>{
@@ -119,6 +129,28 @@ export default function AdminUsersPage(){
     if((session?.user as any)?.role==='admin') loadPaged();
     return ()=>{ abort = true; };
   }, [query, page, PAGE_SIZE, (session?.user as any)?.role]);
+
+  const allUsersColumns = useMemo(() => ([
+    { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
+    { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
+    { key:'className', header:'Klasse', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
+    { key:'ownerTeacher', header:'Lehrperson', hideClassName:'hidden md:table-cell', render:(u:any)=> (u.ownerTeacherName? `${u.ownerTeacherName} (${u.ownerTeacherUsername})` : (u.ownerTeacherUsername||'—')), tdClassName:'whitespace-nowrap' },
+    { key:'role', header:'Rolle', tdClassName:'whitespace-nowrap' },
+    { key:'email', header:'E-Mail', hideClassName:'hidden md:table-cell', tdClassName:'whitespace-nowrap' },
+    { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(u:any)=> (
+      <div className="flex items-center gap-2">
+        <select disabled={updating===u.username} value={u.role} onChange={(e)=>changeRole(u.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
+          <option value="learner">learner</option>
+          <option value="pending-author">pending-author</option>
+          <option value="pending-teacher">pending-teacher</option>
+          <option value="author">author</option>
+          <option value="teacher">teacher</option>
+          <option value="admin">admin</option>
+        </select>
+        <button type="button" onClick={()=>deleteUser(u.username)} className="text-red-600 hover:underline">Löschen</button>
+      </div>
+    )},
+  ]), [updating]);
 
   return (
     <main className="max-w-6xl mx-auto p-6 space-y-10">
@@ -163,14 +195,7 @@ export default function AdminUsersPage(){
       <section className="bg-white border rounded p-4">
         <h2 className="font-semibold mb-3">Lehrpersonen ({teachers.length})</h2>
         <StickyTable
-          columns={useMemo(()=>[
-            { key:'username', header:'Username', sticky:true },
-            { key:'name', header:'Name' },
-            { key:'email', header:'E-Mail' },
-            { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(t:any)=> (
-              <a href={`/admin/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Klassen verwalten</a>
-            )},
-          ], [])}
+          columns={teachersColumns}
           rows={teachers as any}
           minWidthClassName="min-w-[700px]"
           density="compact"
@@ -223,27 +248,7 @@ export default function AdminUsersPage(){
         {loading ? <div className="text-xs text-gray-500">Lade…</div> : (
           <>
             <StickyTable
-              columns={useMemo(()=>[
-                { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
-                { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
-                { key:'className', header:'Klasse', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
-                { key:'ownerTeacher', header:'Lehrperson', hideClassName:'hidden md:table-cell', render:(u)=> (u.ownerTeacherName? `${u.ownerTeacherName} (${u.ownerTeacherUsername})` : (u.ownerTeacherUsername||'—')), tdClassName:'whitespace-nowrap' },
-                { key:'role', header:'Rolle', tdClassName:'whitespace-nowrap' },
-                { key:'email', header:'E-Mail', hideClassName:'hidden md:table-cell', tdClassName:'whitespace-nowrap' },
-                { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(u)=> (
-                  <div className="flex items-center gap-2">
-                    <select disabled={updating===u.username} value={u.role} onChange={(e)=>changeRole(u.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
-                      <option value="learner">learner</option>
-                      <option value="pending-author">pending-author</option>
-                      <option value="pending-teacher">pending-teacher</option>
-                      <option value="author">author</option>
-                      <option value="teacher">teacher</option>
-                      <option value="admin">admin</option>
-                    </select>
-                    <button type="button" onClick={()=>deleteUser(u.username)} className="text-red-600 hover:underline">Löschen</button>
-                  </div>
-                )},
-              ], [updating])}
+              columns={allUsersColumns}
               rows={tableRows as any}
               minWidthClassName="min-w-[900px]"
               density="compact"

@@ -77,6 +77,22 @@ function AdminTeacherManageInner(){
     } catch {}
   }
 
+  // Tabellen-Spalten memoisieren (Top-Level, nicht in JSX), um Hook-Regeln einzuhalten
+  const columns = useMemo(() => [
+    { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
+    { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
+    { key:'email', header:'E-Mail', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
+    { key:'class', header:'Klasse', render:(l:any)=> (
+      <select value={l.class||''} onChange={(e)=>moveLearner(l.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
+        <option value="">(keine)</option>
+        {classes.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+      </select>
+    )},
+    { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(l:any)=> (
+      <button onClick={()=>deleteLearner(l.username)} className="text-red-600 hover:underline">Löschen</button>
+    )},
+  ], [classes, moveLearner, deleteLearner]);
+
   return (
     <main className="max-w-6xl mx-auto p-6 space-y-8">
       <div className="flex items-center justify-between">
@@ -123,20 +139,7 @@ function AdminTeacherManageInner(){
           </form>
 
             <StickyTable
-              columns={useMemo(()=>[
-                { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
-                { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
-                { key:'email', header:'E-Mail', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
-                { key:'class', header:'Klasse', render:(l)=> (
-                  <select value={l.class||''} onChange={(e)=>moveLearner(l.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
-                    <option value="">(keine)</option>
-                    {classes.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-                  </select>
-                )},
-                { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(l)=> (
-                  <button onClick={()=>deleteLearner(l.username)} className="text-red-600 hover:underline">Löschen</button>
-                )},
-              ], [classes])}
+              columns={columns}
               rows={learners as any}
               minWidthClassName="min-w-[800px]"
               density="compact"
