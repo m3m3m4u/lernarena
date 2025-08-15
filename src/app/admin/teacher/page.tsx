@@ -1,7 +1,8 @@
 "use client";
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import StickyTable from '@/components/shared/StickyTable';
 
 interface TeacherClass { _id:string; name:string; }
 interface Learner { _id:string; username:string; name?:string; email?:string; class?:string; }
@@ -121,38 +122,27 @@ function AdminTeacherManageInner(){
             <button className="bg-green-600 text-white px-3 py-1 rounded">Anlegen</button>
           </form>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="py-1 px-2">User</th>
-                  <th className="py-1 px-2">Name</th>
-                  <th className="py-1 px-2">E-Mail</th>
-                  <th className="py-1 px-2">Klasse</th>
-                  <th className="py-1 px-2">Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {learners.map(l=> (
-                  <tr key={l._id} className="border-t">
-                    <td className="py-1 px-2 font-medium">{l.username}</td>
-                    <td className="py-1 px-2">{l.name||'—'}</td>
-                    <td className="py-1 px-2">{l.email||'—'}</td>
-                    <td className="py-1 px-2">
-                      <select value={l.class||''} onChange={e=>moveLearner(l.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
-                        <option value="">(keine)</option>
-                        {classes.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
-                      </select>
-                    </td>
-                    <td className="py-1 px-2">
-                      <button onClick={()=>deleteLearner(l.username)} className="text-red-600 hover:underline">Löschen</button>
-                    </td>
-                  </tr>
-                ))}
-                {learners.length===0 && <tr><td colSpan={5} className="py-2 text-gray-500">Keine Lernenden</td></tr>}
-              </tbody>
-            </table>
-          </div>
+            <StickyTable
+              columns={useMemo(()=>[
+                { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
+                { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
+                { key:'email', header:'E-Mail', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
+                { key:'class', header:'Klasse', render:(l)=> (
+                  <select value={l.class||''} onChange={(e)=>moveLearner(l.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
+                    <option value="">(keine)</option>
+                    {classes.map(c=> <option key={c._id} value={c._id}>{c.name}</option>)}
+                  </select>
+                )},
+                { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(l)=> (
+                  <button onClick={()=>deleteLearner(l.username)} className="text-red-600 hover:underline">Löschen</button>
+                )},
+              ], [classes])}
+              rows={learners as any}
+              minWidthClassName="min-w-[800px]"
+              density="compact"
+              zebra
+              emptyMessage="Keine Lernenden"
+            />
         </section>
       )}
     </main>

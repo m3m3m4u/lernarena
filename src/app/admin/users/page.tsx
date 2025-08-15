@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import StickyTable from '@/components/shared/StickyTable';
 
 interface UserRow { username:string; name?:string; role:string; email?:string; createdAt?:string; ownerTeacherUsername?:string; ownerTeacherName?:string; className?:string; }
 
@@ -143,7 +144,7 @@ export default function AdminUsersPage(){
         </div>
       </section>
 
-      <section className="bg-white border rounded p-4">
+  <section className="bg-white border rounded p-4">
         <h2 className="font-semibold mb-3">Ausstehende Lehrpersonen-Anfragen ({pendingTeacher.length})</h2>
         {pendingTeacher.length===0 && <div className="text-xs text-gray-500">Keine.</div>}
         <div className="divide-y">
@@ -161,24 +162,21 @@ export default function AdminUsersPage(){
 
       <section className="bg-white border rounded p-4">
         <h2 className="font-semibold mb-3">Lehrpersonen ({teachers.length})</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead><tr className="text-left bg-gray-50"><th className="py-1 px-2">Username</th><th className="py-1 px-2">Name</th><th className="py-1 px-2">E-Mail</th><th className="py-1 px-2">Aktion</th></tr></thead>
-            <tbody>
-              {teachers.map(t=> (
-                <tr key={t.username} className="border-t">
-                  <td className="py-1 px-2">{t.username}</td>
-                  <td className="py-1 px-2">{t.name}</td>
-                  <td className="py-1 px-2">{t.email||'—'}</td>
-                  <td className="py-1 px-2">
-                    <a href={`/admin/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Klassen verwalten</a>
-                  </td>
-                </tr>
-              ))}
-              {teachers.length===0 && <tr><td colSpan={4} className="py-2 text-gray-500">Keine Lehrpersonen.</td></tr>}
-            </tbody>
-          </table>
-        </div>
+        <StickyTable
+          columns={useMemo(()=>[
+            { key:'username', header:'Username', sticky:true },
+            { key:'name', header:'Name' },
+            { key:'email', header:'E-Mail' },
+            { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(t:any)=> (
+              <a href={`/admin/teacher?teacher=${encodeURIComponent(t.username)}`} className="text-xs px-2 py-0.5 border rounded hover:bg-gray-50 inline-block">Klassen verwalten</a>
+            )},
+          ], [])}
+          rows={teachers as any}
+          minWidthClassName="min-w-[700px]"
+          density="compact"
+          zebra
+          emptyMessage="Keine Lehrpersonen."
+        />
       </section>
 
       <section className="bg-white border rounded p-4">
@@ -223,46 +221,35 @@ export default function AdminUsersPage(){
           {query && <button onClick={()=>setQuery('')} className="px-2 py-1 border rounded">Reset</button>}
         </div>
         {loading ? <div className="text-xs text-gray-500">Lade…</div> : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
-              <thead>
-                <tr className="bg-gray-50 text-left">
-                  <th className="py-1 px-2">User</th>
-                  <th className="py-1 px-2">Name</th>
-                  <th className="py-1 px-2">Klasse</th>
-                  <th className="py-1 px-2">Lehrperson</th>
-                  <th className="py-1 px-2">Rolle</th>
-                  <th className="py-1 px-2">E-Mail</th>
-                  <th className="py-1 px-2">Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tableRows.map(u=> (
-                  <tr key={u.username} className="border-t">
-                    <td className="py-1 px-2 font-medium">{u.username}</td>
-                    <td className="py-1 px-2">{u.name||'—'}</td>
-                    <td className="py-1 px-2">{u.className||'—'}</td>
-                    <td className="py-1 px-2">{u.ownerTeacherName? `${u.ownerTeacherName} (${u.ownerTeacherUsername})` : (u.ownerTeacherUsername||'—')}</td>
-                    <td className="py-1 px-2">{u.role}</td>
-                    <td className="py-1 px-2">{u.email||'—'}</td>
-                    <td className="py-1 px-2">
-                      <div className="flex items-center gap-2">
-                        <select disabled={updating===u.username} value={u.role} onChange={e=>changeRole(u.username,e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
-                          <option value="learner">learner</option>
-                          <option value="pending-author">pending-author</option>
-                          <option value="pending-teacher">pending-teacher</option>
-                          <option value="author">author</option>
-                          <option value="teacher">teacher</option>
-                          <option value="admin">admin</option>
-                        </select>
-                        <button type="button" onClick={()=>deleteUser(u.username)} className="text-red-600 hover:underline">Löschen</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {tableRows.length===0 && <tr><td colSpan={7} className="py-2 text-gray-500">Keine Benutzer gefunden.</td></tr>}
-              </tbody>
-            </table>
+          <>
+            <StickyTable
+              columns={useMemo(()=>[
+                { key:'username', header:'User', sticky:true, tdClassName:'font-medium whitespace-nowrap' },
+                { key:'name', header:'Name', tdClassName:'whitespace-nowrap' },
+                { key:'className', header:'Klasse', hideClassName:'hidden sm:table-cell', tdClassName:'whitespace-nowrap' },
+                { key:'ownerTeacher', header:'Lehrperson', hideClassName:'hidden md:table-cell', render:(u)=> (u.ownerTeacherName? `${u.ownerTeacherName} (${u.ownerTeacherUsername})` : (u.ownerTeacherUsername||'—')), tdClassName:'whitespace-nowrap' },
+                { key:'role', header:'Rolle', tdClassName:'whitespace-nowrap' },
+                { key:'email', header:'E-Mail', hideClassName:'hidden md:table-cell', tdClassName:'whitespace-nowrap' },
+                { key:'__actions', header:'Aktion', stickyRight:true, thClassName:'bg-gray-50', tdClassName:'bg-white', render:(u)=> (
+                  <div className="flex items-center gap-2">
+                    <select disabled={updating===u.username} value={u.role} onChange={(e)=>changeRole(u.username, e.target.value)} className="border rounded px-1 py-0.5 text-[11px]">
+                      <option value="learner">learner</option>
+                      <option value="pending-author">pending-author</option>
+                      <option value="pending-teacher">pending-teacher</option>
+                      <option value="author">author</option>
+                      <option value="teacher">teacher</option>
+                      <option value="admin">admin</option>
+                    </select>
+                    <button type="button" onClick={()=>deleteUser(u.username)} className="text-red-600 hover:underline">Löschen</button>
+                  </div>
+                )},
+              ], [updating])}
+              rows={tableRows as any}
+              minWidthClassName="min-w-[900px]"
+              density="compact"
+              zebra
+              emptyMessage="Keine Benutzer gefunden."
+            />
             <div className="flex justify-between items-center mt-2 text-[11px]">
               <div>Seite {page} / {Math.max(1, Math.ceil(total / PAGE_SIZE))}</div>
               <div className="flex gap-2">
@@ -270,7 +257,7 @@ export default function AdminUsersPage(){
                 <button disabled={page>=Math.ceil(total / PAGE_SIZE)} onClick={()=>setPage(p=>p+1)} className="px-2 py-1 border rounded disabled:opacity-40">Weiter »</button>
               </div>
             </div>
-          </div>
+          </>
         )}
       </section>
     </main>
