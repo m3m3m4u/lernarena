@@ -169,17 +169,6 @@ export default function IsostadtCanvas({ width, height }: Props) {
       fgctx.strokeStyle = "rgba(59,130,246,1)";
       fgctx.lineWidth = Math.max(1, 2 / scale);
       fgctx.stroke();
-  // Debug-Fadenkreuz am Mittelpunkt
-  fgctx.save();
-  fgctx.strokeStyle = "rgba(0,0,0,0.6)";
-  fgctx.lineWidth = Math.max(1, 1 / scale);
-  fgctx.beginPath();
-  fgctx.moveTo(cx - 6, cy);
-  fgctx.lineTo(cx + 6, cy);
-  fgctx.moveTo(cx, cy - 6);
-  fgctx.lineTo(cx, cy + 6);
-  fgctx.stroke();
-  fgctx.restore();
     }
 
     function gridFromPoint(localX: number, localY: number) {
