@@ -484,12 +484,17 @@ export async function POST(
     const last = (lastUnknown ?? null) as unknown as { order?: number } | null;
     const newOrder = typeof last?.order === 'number' ? last.order + 1 : 1;
 
+    // Legacy-Alias: 'snake' => 'minigame' (intern bevorzugt)
+    if (finalType === 'snake') {
+      // @ts-ignore – finalType ist string
+      finalType = 'minigame';
+    }
     const isChoice = typeof finalType === 'string' && finalType.includes('choice');
     const isMatching = finalType === 'matching';
     const isMemory = finalType === 'memory';
-  const isLueckentext = finalType === 'lueckentext';
-  const isTextAnswer = finalType === 'text-answer';
-  const isOrdering = finalType === 'ordering';
+    const isLueckentext = finalType === 'lueckentext';
+    const isTextAnswer = finalType === 'text-answer';
+    const isOrdering = finalType === 'ordering';
 
     // Text-Answer: jetzt Multi-Block Format { raw, blocks:[{question,answers[],media?}], caseSensitive, allowReveal, (legacy question/answer) }
     if (isTextAnswer) {

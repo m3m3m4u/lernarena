@@ -150,6 +150,21 @@ function TeacherPanelContent(){
 
   {/* Admin-Modus entfernt: Admins haben keine Lehrer-Funktionen */}
 
+      {/* Hilfe: Wie funktioniert das? */}
+      <details className="bg-blue-50 border border-blue-200 text-blue-900 rounded p-4 text-sm">
+        <summary className="font-semibold cursor-pointer">Wie funktioniert das? (Hilfe)</summary>
+        <ul className="list-disc pl-5 mt-2 space-y-1">
+          <li>Lege zuerst Klassen an. Du kannst Lernende einzeln oder per Mehrfach-Import hinzufügen.</li>
+          <li>Unter „Zugriff“ stellst du ein, ob Lernende nur klassenbezogene Kurse sehen (Nur Klassenkurse) oder alle veröffentlichten Kurse (Alle Kurse).</li>
+          <li>Kurse ordnest du im Bereich „Kurse zuordnen“ deiner Klasse zu. Entweder als Link (Original bleibt erhalten) oder als anpassbare Klassenkopie.</li>
+          <li>Entwürfe sind für Lernende unsichtbar. Sichtbar werden Kurse erst nach Veröffentlichung oder wenn sie als Klassenkopie zugeordnet und freigegeben sind – je nach Zugriffseinstellung.</li>
+          <li>Statistiken zu Fortschritt und Sternen findest du im Bereich „Statistik“.</li>
+        </ul>
+        <div className="mt-2 text-xs text-blue-800">
+          Tipp: Lektionstypen (z. B. Multiple Choice, Lückentext, Minigame) bearbeitest du im Kurs-Editor. Bei „Minigame“ wählen die Lernenden die Spielform: Snake, Autospiel, Flugzeugspiel, PacMan oder Space Impact.
+        </div>
+      </details>
+
       <section className="bg-white border rounded p-4 space-y-4">
         <h2 className="font-semibold">Klassen</h2>
         <form onSubmit={createClass} className="flex gap-2 text-xs">

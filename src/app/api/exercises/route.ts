@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
 
     if (!title) return NextResponse.json({ success: false, error: 'Titel erforderlich' }, { status: 400 });
 
-    const effectiveCourseId = courseId ? String(courseId) : 'exercise-pool';
+  const effectiveCourseId = courseId ? String(courseId) : 'exercise-pool';
+  const normalizedType: string = String(type) === 'snake' ? 'minigame' : String(type);
     const order = 0;
     // Kategorie bestimmen: bei Kurs-Übung vom Kurs übernehmen, sonst optional aus body.category
     let category: string | undefined;
@@ -78,7 +79,7 @@ export async function POST(req: NextRequest) {
       title: String(title),
       courseId: effectiveCourseId,
       category,
-      type: String(type),
+      type: normalizedType,
       content: content || {},
       questions: Array.isArray(questions) ? questions : [],
       order,
@@ -97,16 +98,17 @@ export async function PATCH(req: NextRequest) {
     if (!session?.user) return NextResponse.json({ success: false, error: 'Nicht authentifiziert' }, { status: 401 });
     await dbConnect();
     const body = await req.json();
-    const { lessonId, title, type, content, questions } = body || {};
+  const { lessonId, title, type, content, questions } = body || {};
     if (!lessonId) return NextResponse.json({ success: false, error: 'lessonId fehlt' }, { status: 400 });
     const lesson = await Lesson.findById(lessonId);
     if (!lesson || !lesson.isExercise) return NextResponse.json({ success: false, error: 'Übung nicht gefunden' }, { status: 404 });
 
     if (title) lesson.title = String(title);
     if (type) {
-  const allowed = ["text","single-choice","multiple-choice","video","markdown","matching","memory","lueckentext","ordering","text-answer","snake"] as const;
-      if (allowed.includes(type as any)) {
-        lesson.type = type as typeof allowed[number];
+  const allowed = ["text","single-choice","multiple-choice","video","markdown","matching","memory","lueckentext","ordering","text-answer","minigame","snake"] as const;
+      const nextType = (type === 'snake' ? 'minigame' : type) as (typeof allowed)[number];
+      if (allowed.includes(nextType as any)) {
+        lesson.type = nextType;
       }
     }
     if (content && typeof content === 'object') lesson.content = content;

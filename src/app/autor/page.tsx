@@ -62,7 +62,8 @@ function CoursesTab() {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch('/api/kurse');
+  // Autoren sollen auch Entwürfe sehen -> showAll=1
+  const res = await fetch('/api/kurse?showAll=1');
         const data = await res.json();
         if (res.ok && data.success && Array.isArray(data.courses)) {
           const dbCourses: CourseDB[] = data.courses;
@@ -364,7 +365,7 @@ function ExercisesTab() {
       { type:'lueckentext', icon:'🧩', name:'Lückentext', desc:'*Antwort* markieren' },
       { type:'ordering', icon:'🔢', name:'Reihenfolge', desc:'Sortieren' },
       { type:'text-answer', icon:'✍️', name:'Text-Antwort', desc:'Freitext prüfen' },
-  { type:'snake', icon:'🎮', name:'Minigame', desc:'Kursteilnehmer wählen den Spieltyp.' },
+  { type:'minigame', icon:'🎮', name:'Minigame', desc:'Kursteilnehmer wählen den Spieltyp.' },
   { type:'video', icon:'🎬', name:'Video', desc:'YouTube (Embed) – abgeschlossen nach komplettem Ansehen' }
     ];
 
@@ -452,7 +453,7 @@ function ExercisesTab() {
                       case 'multiple-choice':
                       case 'matching':
                         if (Array.isArray(l.questions)) qCount = l.questions.length; break;
-                      case 'snake': {
+                      case 'minigame': {
                         // Neuer Modus: content.blocks; Alt: questions
                         if (Array.isArray(l?.content?.blocks)) qCount = l.content.blocks.length;
                         else if (Array.isArray(l.questions)) qCount = l.questions.length;

@@ -141,23 +141,24 @@ Falsche Audio-Antwort`);
           alert(`❌ Fehler: ${result.error}`);
         }
       } else {
-        // Als eigenständige Lektion speichern über /api/lessons
-        const response = await fetch('/api/lessons', {
+        // Als eigenständige Übung speichern über /api/exercises (exercise-pool)
+        const response = await fetch('/api/exercises', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             ...lessonData,
-            courseId: 'standalone' // Für eigenständige Lektionen
+            title: title.trim(),
+            category: standaloneCategory.trim() || undefined
           })
         });
 
         const result = await response.json();
 
         if (result.success) {
-          alert(`✅ Lektion "${title}" wurde erstellt!`);
-          router.push(inTeacher ? '/teacher' : '/autor');
+          alert(`✅ Übung "${title}" wurde erstellt!`);
+          router.push(inTeacher ? '/teacher' : '/autor?tab=uebungen');
         } else {
           alert(`❌ Fehler: ${result.error}`);
         }

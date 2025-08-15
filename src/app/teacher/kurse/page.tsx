@@ -164,6 +164,19 @@ function TeacherCoursesContent(){
   <a href="/dashboard" className="text-sm text-blue-600 hover:underline">🏠 Startseite</a>
       </div>
 
+      {/* Hilfe: Wie funktionieren Kurse und Freigaben? */}
+      <details className="bg-blue-50 border border-blue-200 text-blue-900 rounded p-4 mb-6 text-sm">
+        <summary className="font-semibold cursor-pointer">Wie funktioniert das? (Hilfe)</summary>
+        <ul className="list-disc pl-5 mt-2 space-y-1">
+          <li>„Eigene“ zeigt Kurse, die du erstellt hast. „Übernommene“ zeigt Kurse anderer.</li>
+          <li>Ordne Kurse deiner Klasse zu: als <strong>Link</strong> (Original bleibt synchron) oder wandel den Link später in eine <strong>Kopie</strong> um, um Inhalte für die Klasse anzupassen.</li>
+          <li>Unter „Freigaben“ siehst du pro Klasse alle zugeordneten Kurse und kannst den <strong>Zugriff</strong> umschalten: Nur Klassenkurse vs. Alle veröffentlichten Kurse.</li>
+          <li>Ein Kurs ist für Lernende erst sichtbar, wenn er veröffentlicht ist <em>oder</em> als Klassenkopie zugeordnet und freigegeben wurde – abhängig von der Zugriffseinstellung.</li>
+          <li>Lektionen erstellst und bearbeitest du im Kurs-Editor. Unterstützte Typen: Markdown, Multiple Choice, Lückentext, Matching, Ordering, Textantwort, Video, Minigame.</li>
+        </ul>
+  <div className="mt-2 text-xs text-blue-800">Hinweis: Bei „Minigame“ wählen Lernende die Spielform (Snake, Autospiel, Flugzeugspiel, PacMan oder Space Impact). Standalone-Übungen ohne Kurs kannst du im Autor-Bereich anlegen und später einem Kurs hinzufügen.</div>
+      </details>
+
       {/* Tabs */}
       <div className="flex gap-6 border-b border-gray-200 mb-6 text-sm">
         <button onClick={()=>changeTab('eigene')} className={"pb-2 -mb-px border-b-2 "+(tab==='eigene'?'border-blue-600 font-semibold text-blue-700':'border-transparent text-gray-500 hover:text-gray-800')}>Eigene</button>

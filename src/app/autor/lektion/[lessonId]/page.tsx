@@ -191,7 +191,7 @@ export default function EditLessonPage() {
 
   useEffect(()=>{
     if(!lesson) return;
-    if(['single-choice','multiple-choice','snake'].includes(lesson.type)) parseQuestions();
+  if(['single-choice','multiple-choice','snake','minigame'].includes(lesson.type)) parseQuestions();
   },[questionsText, lesson?.type, lesson, parseQuestions]);
   useEffect(() => {
     if (lesson?.type !== 'ordering') return;
@@ -355,7 +355,7 @@ export default function EditLessonPage() {
       }
       setLesson(prev => prev ? { ...prev, content: c } : prev);
       setShowPreview(true);
-    } else if (normalized.type === 'snake') {
+  } else if (normalized.type === 'snake' || normalized.type === 'minigame') {
       const c = (normalized.content || {}) as any;
       if (Array.isArray(c.blocks)) {
         const text = c.blocks.map((b: any) => {
@@ -453,13 +453,13 @@ export default function EditLessonPage() {
     }
 
     // Snake
-    if (lesson.type === 'snake') {
+  if (lesson.type === 'snake' || lesson.type === 'minigame') {
       if (!parsedQuestions.length) { alert('Keine gültigen Snake-Fragen.'); return; }
       const blocks = parsedQuestions.map(q => ({ question: q.question, answers: q.allAnswers, correct: q.allAnswers.findIndex(a=>a===q.correctAnswer) }));
       setSaving(true);
       try {
         const initialSpeedMs = snakeDifficulty === 'schwer' ? 140 : (snakeDifficulty === 'einfach' ? 220 : 180);
-        const res = await fetch(`/api/kurs/${lesson.courseId}/lektionen/${lessonId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.trim(), type: 'snake', content: { blocks, targetScore: snakeTargetScore, difficulty: snakeDifficulty, initialSpeedMs }, category }) });
+  const res = await fetch(`/api/kurs/${lesson.courseId}/lektionen/${lessonId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: title.trim(), type: 'minigame', content: { blocks, targetScore: snakeTargetScore, difficulty: snakeDifficulty, initialSpeedMs }, category }) });
         let data: any = null;
         try { data = await res.json(); } catch { /* ignore parse */ }
         if ((res.ok && data?.success) || (!res.ok && data?.success)) {
@@ -633,7 +633,7 @@ export default function EditLessonPage() {
   );
 
   // Snake UI ausgelagert in dynamische Komponente
-  if (lesson.type === 'snake') return (
+  if (lesson.type === 'snake' || lesson.type === 'minigame') return (
     <SnakeEditor
       lesson={lesson}
       title={title} setTitle={setTitle}

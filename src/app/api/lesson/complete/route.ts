@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
     'ordering',
     'text-answer',
     'video',
-    'snake'
+  'minigame',
+  'snake'
   ]);
 
   // Entscheidung unabhängig vom Client-Flag (clientEarnedStar nur fürs Audit protokolliert)

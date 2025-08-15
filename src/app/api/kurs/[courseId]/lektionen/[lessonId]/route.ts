@@ -299,7 +299,8 @@ export async function PUT(
     } else if (type === 'snake') {
       // Vereinfachte Snake-Konfiguration (Fragenblöcke + Zielscore + Difficulty + initialSpeedMs)
       const contentObj = (body as { content?: any }).content || {};
-      const targetScore = Number(contentObj.targetScore) || Number(contentObj.content?.targetScore) || 10;
+    const persistedType = type === 'snake' ? 'minigame' : type;
+    const targetScore = Number(contentObj.targetScore) || Number(contentObj.content?.targetScore) || 10;
       const difficultyRaw = String(contentObj.difficulty || '').toLowerCase();
       const difficulty: 'einfach'|'mittel'|'schwer' = difficultyRaw === 'schwer' ? 'schwer' : (difficultyRaw === 'einfach' ? 'einfach' : 'mittel');
       const providedSpeed = Number(contentObj.initialSpeedMs);
