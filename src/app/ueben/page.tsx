@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 interface Exercise { _id: string; title: string; type: string; courseId: string; createdAt?: string; category?: string; }
 
-export default function UebenPage() {
+function UebenInner() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -99,5 +99,13 @@ export default function UebenPage() {
   <a href="/dashboard" className="text-blue-600 hover:underline text-sm">← Zurück zur Startseite</a>
       </div>
     </main>
+  );
+}
+
+export default function UebenPage(){
+  return (
+    <Suspense fallback={<main className="max-w-6xl mx-auto mt-10 p-6"><div className="text-gray-500">Lade…</div></main>}>
+      <UebenInner />
+    </Suspense>
   );
 }
