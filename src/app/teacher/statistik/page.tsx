@@ -102,8 +102,7 @@ export default function TeacherStatisticsPage(){
     const autoTable = (await import('jspdf-autotable')).default;
     const doc = new jsPDF({ orientation: 'landscape' });
     doc.text('Statistik', 14, 14);
-    // @ts-ignore - autotable augments jsPDF instance
-    autoTable(doc, { head: [head], body: rows, startY: 20, styles: { fontSize: 8 } });
+  (autoTable as any)(doc, { head: [head], body: rows, startY: 20, styles: { fontSize: 8 } });
     doc.save(`statistik_${selectedClass || 'klasse'}.pdf`);
   }
 
