@@ -363,7 +363,7 @@ export default function LessonPage() {
   const isVideo = lesson?.type === 'video';
   const isLueckentext = lesson?.type === 'lueckentext';
   const isOrdering = lesson?.type === 'ordering';
-  const isSnake = lesson?.type === 'snake';
+  const isSnake = lesson?.type === 'snake' || lesson?.type === 'minigame';
   const markVideoCompleted = useCallback(async () => {
     const username = session?.user?.username;
     if (!lesson) return;

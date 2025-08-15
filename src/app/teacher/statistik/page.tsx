@@ -130,6 +130,18 @@ export default function TeacherStatisticsPage(){
         </div>
       </div>
 
+      {/* Hilfe: Statistik verstehen */}
+      <details className="bg-blue-50 border border-blue-200 text-blue-900 rounded p-4 mb-4 text-sm">
+        <summary className="font-semibold cursor-pointer">Wie funktioniert das? (Hilfe)</summary>
+        <ul className="list-disc pl-5 mt-2 space-y-1">
+          <li>Wähle oben eine Klasse. Mit „Kursumfang“ steuerst du, ob nur Klassenkurse oder alle veröffentlichten Kurse ausgewertet werden.</li>
+          <li>Pro Kurs siehst du den Fortschritt „abgeschlossen/gesamt“ sowie eine Fortschrittsleiste.</li>
+          <li>„⭐ Sterne“ summiert die in Lektionen verdienten Sterne; „✔️ gesamt“ zählt abgeschlossene Lektionen.</li>
+          <li>Du kannst die Tabelle als Excel, PDF oder Word exportieren.</li>
+          <li>Hinweis: In Minigame-Lektionen wählen Lernende selbst die Spielform (Snake, Autospiel, Flugzeugspiel, PacMan oder Space Impact).</li>
+        </ul>
+      </details>
+
       <div className="bg-white border rounded p-4 mb-4">
         <div className="flex flex-col lg:flex-row lg:items-end gap-4">
           <div>

@@ -96,7 +96,7 @@ function NeueLektionPageInner() {
   // Neu: Reihenfolge festlegen
     ordering: "🔢 Reihenfolge"
   , "text-answer": "✍️ Text-Antwort"
-  , snake: "Minigame"
+  , minigame: "Minigame"
   } as const;
 
   function getEmptyTemplate(type: string) {
@@ -145,7 +145,7 @@ function NeueLektionPageInner() {
         return { items: ["Schritt 1", "Schritt 2", "Schritt 3"] };
       case "text-answer":
         return { question: "", answer: "", partials: [], caseSensitive: false };
-      case "snake":
+  case "minigame":
         return { questions: "Frage 1\nRichtige Antwort\nFalsch A\nFalsch B\nFalsch C\n\nFrage 2\nRichtig\nFalsch\nFalsch\nFalsch", targetScore: 10, difficulty: 'mittel' } as SnakeContent;
       default:
         return {};
@@ -154,17 +154,15 @@ function NeueLektionPageInner() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!courseId) {
-      alert("Kein Kurs-Kontext gefunden. Bitte aus einem Kurs heraus erstellen.");
-      return;
-    }
     if (!(lessonData.title || "").trim()) {
       alert("Bitte einen Titel angeben.");
       return;
     }
     // Single-Choice wird im separaten Editor erstellt
     if (lessonData.type === "single-choice") {
-      router.push(inTeacher ? `/teacher/lektion/single-choice?courseId=${courseId}` : `/autor/lektion/single-choice?courseId=${courseId}`);
+      // Immer in den Spezial-Editor wechseln, auch ohne Kurs (der Editor erstellt dann eine Übung)
+      const target = inTeacher ? "/teacher/lektion/single-choice" : "/autor/lektion/single-choice";
+      router.push(courseId ? `${target}?courseId=${courseId}` : target);
       return;
     }
     setIsSaving(true);
@@ -178,13 +176,63 @@ function NeueLektionPageInner() {
       const standaloneCat = (lessonData as any).category?.trim?.();
       if (!courseId && standaloneCat) payload.category = standaloneCat;
 
+      // Multiple-Choice: Text in Fragen normalisieren (für Exercises-API, die kein Text-Parsing übernimmt)
       if (lessonData.type === 'multiple-choice') {
-        const mc = lessonData.content as MultipleChoiceContent | undefined;
-        payload.text = mc?.text || '';
+        const mc = (lessonData.content as MultipleChoiceContent | undefined);
+        const text = (mc?.text || '').trim();
+        if (text) {
+          const blocks = text.split(/\n\s*\n/).map(b=>b.trim()).filter(Boolean);
+          const questions = blocks.map(b => {
+            const lines = b.split(/\n/).map(l=>l.trim()).filter(Boolean);
+            if (lines.length < 2) return null;
+            let qText = lines[0];
+            let media = '';
+            const m = qText.match(/^(.+?)\s*\[(.+?)\]$/);
+            if (m) { qText = m[1].trim(); media = m[2].trim(); }
+            const ans = lines.slice(1);
+            const corrects = ans.filter(a=>a.startsWith('*')).map(a=>a.replace(/^\*+/, '').trim());
+            const wrongs = ans.filter(a=>!a.startsWith('*')).map(a=>a.trim());
+            const all = [...corrects, ...wrongs].filter(Boolean);
+            if (!qText || corrects.length === 0 || all.length < 2) return null;
+            return { question: qText, mediaLink: media || undefined, correctAnswers: corrects, wrongAnswers: wrongs, allAnswers: all };
+          }).filter(Boolean) as Array<{ question: string; mediaLink?: string; correctAnswers: string[]; wrongAnswers: string[]; allAnswers: string[] }>;
+          (payload as any).questions = questions;
+          delete (payload as any).text;
+        } else {
+          // kein Text -> leere Fragenliste (Server validiert ggf.)
+          (payload as any).questions = [];
+        }
       }
+      // Matching: Text in Fragen normalisieren (Exercises-API hat kein Parser)
       if (lessonData.type === 'matching') {
-        const m = lessonData.content as { text?: string } | undefined;
-        payload.text = (m?.text || '').trim();
+        const m = (lessonData.content as { text?: string } | undefined);
+        const text = (m?.text || '').trim();
+        if (text) {
+          const blocks = text.split(/\n\s*\n+/).map(b=>b.trim()).filter(Boolean);
+          const toPairs = (block: string) => block.split(/\n+/).map(l=>l.trim()).filter(Boolean).slice(0,5)
+            .map(line => { const [l, r] = line.split('|'); return { l: String(l||'').trim(), r: String(r||'').trim() }; })
+            .filter(p => p.l && p.r);
+          const shuffle = <T,>(arr: T[]) => arr.map(v=>[Math.random(),v] as const).sort((a,b)=>a[0]-b[0]).map(([,v])=>v);
+          const questions = blocks.map(b => {
+            const pairs = toPairs(b);
+            if (pairs.length < 2) return null;
+            const lefts = pairs.map(p=>p.l);
+            const rights = pairs.map(p=>p.r);
+            const all = shuffle([...lefts, ...rights]);
+            const mediaPair = pairs.find(p=>/\.(jpg|jpeg|png|gif|webp|mp3|wav|ogg|m4a)$/i.test(p.l)||/\.(jpg|jpeg|png|gif|webp|mp3|wav|ogg|m4a)$/i.test(p.r));
+            return {
+              question: 'Finde die passenden Paare',
+              mediaLink: undefined,
+              correctAnswers: pairs.map(p=>`${p.l}=>${p.r}`),
+              wrongAnswers: [],
+              allAnswers: all
+            };
+          }).filter(Boolean) as Array<{ question: string; mediaLink?: string; correctAnswers: string[]; wrongAnswers: string[]; allAnswers: string[] }>;
+          (payload as any).questions = questions;
+          // content.text für Referenz beibehalten
+        } else {
+          (payload as any).questions = [];
+        }
       }
       // Video Normalisierung
       if (lessonData.type === 'video') {
@@ -238,7 +286,7 @@ function NeueLektionPageInner() {
         payload.content.answer = first.answers[0];
       }
 
-  if (lessonData.type === 'snake') {
+  if (lessonData.type === 'minigame') {
         const c = (lessonData.content as any) || {} as SnakeContent;
         const raw = String(c.questions || '').replace(/\r/g,'');
         if (!raw.trim()) {
@@ -267,15 +315,21 @@ function NeueLektionPageInner() {
   payload.content = { blocks, targetScore, initialSpeedMs: speed, difficulty };
       }
 
-      const res = await fetch(`/api/kurs/${courseId}/lektionen`, {
+      // Wenn kein Kurs gewählt ist, lege eine eigenständige Übung im exercise-pool an
+      const endpoint = courseId ? `/api/kurs/${courseId}/lektionen` : '/api/exercises';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
       const data = await res.json();
       if (res.ok && data.success) {
-  alert(`✅ Lektion "${lessonData.title}" wurde erstellt!`);
-  router.push(inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`);
+        alert(`✅ ${courseId ? 'Lektion' : 'Übung'} "${lessonData.title}" wurde erstellt!`);
+        if (courseId) {
+          router.push(inTeacher ? `/teacher/kurs/${courseId}` : `/autor/kurs/${courseId}`);
+        } else {
+          router.push(inTeacher ? '/teacher' : '/autor?tab=uebungen');
+        }
       } else {
         alert(`❌ Fehler beim Erstellen: ${data.error || res.statusText}${data.details ? `\nDetails: ${data.details}` : ''}`);
       }
@@ -449,7 +503,7 @@ function NeueLektionPageInner() {
           {type === "lueckentext" && <LueckentextForm lessonData={lessonData} setLessonData={setLessonData} />}
           {type === "ordering" && <OrderingForm lessonData={lessonData} setLessonData={setLessonData} />}
           {type === "text-answer" && <TextAnswerForm lessonData={lessonData} setLessonData={setLessonData} />}
-          {type === "snake" && renderSnake()}
+          {type === "minigame" && renderSnake()}
         </div>
 
         {/* Aktionen */}

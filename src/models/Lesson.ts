@@ -13,7 +13,8 @@ export interface ILesson extends Document {
   title: string;
   courseId: string; // eindeutige Kurs-Zuordnung ("exercise-pool" für Standalone-Übung)
   category?: string; // Fach/Kategorie (aus Kurs übernommen oder bei Standalone direkt gesetzt)
-  type: "single-choice" | "multiple-choice" | "text" | "video" | "markdown" | "matching" | "memory" | "lueckentext" | "ordering" | "text-answer" | "snake";
+  // Hinweis: "snake" ist ein Legacy-Alias für "minigame" und wird weiterhin gelesen.
+  type: "single-choice" | "multiple-choice" | "text" | "video" | "markdown" | "matching" | "memory" | "lueckentext" | "ordering" | "text-answer" | "minigame" | "snake";
   questions?: IQuestion[];
   content?: Record<string, unknown>;
   isExercise?: boolean; // True, wenn diese Lektion auch als eigenständige Übung gelistet werden soll
@@ -36,7 +37,8 @@ const LessonSchema: Schema = new Schema({
   title: { type: String, required: true },
   courseId: { type: String, required: true },
   category: { type: String, trim: true },
-  type: { type: String, required: true, enum: ["single-choice", "multiple-choice", "text", "video", "markdown", "matching", "memory", "lueckentext", "ordering", "text-answer", "snake"] },
+  // Enum enthält "snake" (Legacy) und "minigame" (neu bevorzugt)
+  type: { type: String, required: true, enum: ["single-choice", "multiple-choice", "text", "video", "markdown", "matching", "memory", "lueckentext", "ordering", "text-answer", "minigame", "snake"] },
   questions: [QuestionSchema],
   content: { type: Schema.Types.Mixed },
   isExercise: { type: Boolean, default: false },
