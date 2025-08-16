@@ -1,17 +1,3 @@
-# Audio-Dateien für Media-Bibliothek
-
-Hier werden Audio-Dateien für alle Kurse abgelegt.
-
-## Unterstützte Formate:
-- `.mp3` - MP3 Audio
-- `.wav` - WAV Audio  
-- `.ogg` - OGG Audio
-- `.m4a` - M4A Audio
-
-## Verwendung:
-Format: `/media/audio/dateiname.mp3`
-
-## Hinweise:
-- Achten Sie auf kleine Dateigrößen für bessere Ladezeiten
-- MP3 wird von den meisten Browsern unterstützt
-- Diese Dateien können in allen Kursen wiederverwendet werden
+version https://git-lfs.github.com/spec/v1
+oid sha256:bfcc923834b13d5ae77af930c18b33f4f33800f929662a060b74ec3d583d517b
+size 445

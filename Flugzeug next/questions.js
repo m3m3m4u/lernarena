@@ -1,7 +1,3 @@
-// Sammlung gemischter Fragen (können sich wiederholen).
-// Jede Frage: { prompt: '...', answers: ['a','b','c','d'], correctIndex: 2 }
-// Du kannst beliebig viele ergänzen.
-window.QUIZ_QUESTIONS = [
-  { prompt: 'Du .... Karate', answers: ['machtmacht machtmacht machtmacht machtmachtmacht','machst','machen','macht'], correctIndex: 1 },
-  { prompt: 'Er .... Fußball', answers: ['spielst','spielst du','spielt','spielen'], correctIndex: 2 }
-];
+version https://git-lfs.github.com/spec/v1
+oid sha256:12342a571b235d15319210fe4e1927c1223ea0a7974f9dc98e60d7412acacfd3
+size 446
