@@ -1,0 +1,11 @@
+{
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/user/route": "app/api/user/route.js",
+  "/api/arena/isostadt/route": "app/api/arena/isostadt/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/arena/page": "app/arena/page.js",
+  "/arena/isostadt/page": "app/arena/isostadt/page.js"
+}
