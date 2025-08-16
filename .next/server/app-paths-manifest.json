@@ -1,8 +1,6 @@
 {
   "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/ueben/page": "app/ueben/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/kurs/[courseId]/lektion/[lessonId]/page": "app/kurs/[courseId]/lektion/[lessonId]/page.js",
-  "/autor/page": "app/autor/page.js",
-  "/autor/lektion/[lessonId]/page": "app/autor/lektion/[lessonId]/page.js"
+  "/api/arena/isostadt/route": "app/api/arena/isostadt/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/arena/isostadt/page": "app/arena/isostadt/page.js"
 }
