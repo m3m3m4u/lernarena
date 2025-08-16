@@ -61,10 +61,11 @@ export async function GET(
     const username = (session?.user as any)?.username as string | undefined;
     // Kurs laden für Published-Check (Gäste)
     const course = await Course.findById(courseId).lean();
-    if (!course) {
+    const isVirtualPool = !course && (courseId === 'exercise-pool');
+    if (!course && !isVirtualPool) {
       return NextResponse.json({ success: false, error: 'Kurs nicht gefunden' }, { status: 404 });
     }
-    if (role === 'learner' && username) {
+  if (!isVirtualPool && role === 'learner' && username) {
       const me = await User.findOne({ username }, '_id class').lean();
       const classId = me?.class ? String(me.class) : null;
       if (!classId) {
@@ -88,13 +89,16 @@ export async function GET(
       }
     }
     // Gäste/Anonyme: nur veröffentlichte Kurse
-    if (!session?.user || !(role === 'author' || role === 'admin' || role === 'teacher' || role === 'learner')) {
+    if (!isVirtualPool && (!session?.user || !(role === 'author' || role === 'admin' || role === 'teacher' || role === 'learner'))) {
       if (!(course as any).isPublished) {
         return NextResponse.json({ success: false, error: 'Kurs ist nicht veröffentlicht' }, { status: 403 });
       }
     }
     const lessons = await Lesson.find({ courseId }).sort({ order: 1, createdAt: 1 });
-    return NextResponse.json({ success: true, lessons });
+    const coursePayload = isVirtualPool
+      ? { _id: 'exercise-pool', title: 'Übungs-Pool', progressionMode: 'free', isPublished: true }
+      : { _id: String(course?._id), title: (course as any)?.title, progressionMode: (course as any)?.progressionMode || 'free', isPublished: !!(course as any)?.isPublished };
+    return NextResponse.json({ success: true, lessons, course: coursePayload });
   } catch (error: unknown) {
     const details = error instanceof Error ? error.message : undefined;
     return NextResponse.json({ success: false, error: 'Fehler beim Laden', details }, { status: 500 });

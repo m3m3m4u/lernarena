@@ -14,6 +14,8 @@ let projectiles = [];
 let orbs = []; // moving colored circles representing answer colors
 let spawnEntries = []; // aktuelle Spawn-Einträge für die aktive Frage
 let gameTime = 0; // akkumulierte Zeit (Sekunden)
+let questionSolved = false; // wurde die richtige Antwort dieser Frage getroffen?
+let pendingNextQuestionIndex = null; // Fragewechsel am Frame-Ende ausführen
 let input = { up:false, down:false, shoot:false };
 let shootCooldown = 0;
 let particles = []; // Partikel für Trefferfeedback
@@ -68,6 +70,7 @@ function decreaseWeight(idx, factor){
 function loadQuestion(idx){
   if(idx==null || idx>=window.QUIZ_QUESTIONS.length) idx = pickNextQuestionIndex();
   currentQuestionIndex = idx;
+  questionSolved = false;
   const q = window.QUIZ_QUESTIONS[idx];
   frageEl.textContent = q.q;
   antwortenEl.innerHTML = '';
@@ -106,6 +109,7 @@ function trySpawnEntries(){
         correct: entry.correct,
         speed: baseOrbSpeed + Math.random()*30,
         spawnEntry: entry,
+  inert: false,
       };
       orbs.push(orb);
       // Nächster Spawn wird erst gesetzt wenn dieser Orb verschwindet
@@ -201,7 +205,7 @@ function update(dt){
   // remove off-screen orbs (und Respawn setzen wenn zur aktuellen Frage gehörig)
   orbs.forEach(o=>{
     if(o.x + o.r <= 0){
-      if(spawnEntries.includes(o.spawnEntry)){
+      if(!o.inert && spawnEntries.includes(o.spawnEntry)){
         o.spawnEntry.nextSpawn = gameTime + 1; // 1 Sekunde später
       }
       o._despawn = true;
@@ -226,28 +230,44 @@ function update(dt){
   particles = particles.filter(p=> p.life>0);
 
   // collisions projectile-orb
+  let clearAllOrbsNow = false;
   projectiles.forEach(p=>{
-    orbs.forEach(o=>{
+    // Korrekte zuerst prüfen, damit in demselben Frame keine falsche Bestrafung passiert
+    const orbsOrdered = [...orbs].sort((a,b)=>{
+      if(a.correct === b.correct) return 0;
+      return a.correct ? -1 : 1;
+    });
+    orbsOrdered.forEach(o=>{
+      if(o.inert) return; // Schwarze (alte) Orbs ignorieren
       if(circleIntersect(p,o)){
         p._hit = true;
         o._hit = true;
-        if(o.correct){
+  if(o.correct){
+          questionSolved = true; // ab jetzt keine Herzabzüge mehr für diese Frage
           score += 1; scoreEl.textContent = score;
           decreaseWeight(currentQuestionIndex, 0.6);
           // Partikel (grün)
           spawnParticles(o.x,o.y,{color:'#4ade80',count:18,speedMin:90,speedMax:320,life:0.7,size:6});
-          // alle anderen Orbs sofort entfernen
+          // Alle anderen Orbs sofort explodieren lassen und entfernen
           orbs.forEach(rem=>{ if(rem!==o){
-            if(spawnEntries.includes(rem.spawnEntry)) rem.spawnEntry.nextSpawn = 0;
-            rem._hit = true;
+            // Partikel-Explosion (grau)
+            spawnParticles(rem.x, rem.y, { color:'#bbbbbb', count:14, speedMin:70, speedMax:220, life:0.5, size:5 });
+            rem.inert = true; // bis zur Entfernung keine Kollisionen mehr
+            rem._hit = true;  // im selben Frame herausfiltern
           }});
-          const nextIdx = pickNextQuestionIndex();
-          loadQuestion(nextIdx);
+          clearAllOrbsNow = true; // zusätzliche Sicherheit: alles sofort weg
+          // Fragewechsel ans Frame-Ende verschieben
+          if(pendingNextQuestionIndex==null){ pendingNextQuestionIndex = pickNextQuestionIndex(); }
           canvas.classList.add('flash');
           setTimeout(()=>canvas.classList.remove('flash'),300);
         } else {
-          score -= 1; if(score<0) score=0; scoreEl.textContent = score;
-          lives -= 1; livesEl.textContent = lives;
+          if(!questionSolved){
+            score -= 1; if(score<0) score=0; scoreEl.textContent = score;
+          }
+          // Kein Herzabzug mehr, wenn richtige Antwort bereits getroffen wurde
+          if(!questionSolved){
+            lives -= 1; livesEl.textContent = lives;
+          }
           increaseWeight(currentQuestionIndex, 4);
           // Partikel (rot)
           spawnParticles(o.x,o.y,{color:'#ff4444',count:12,speedMin:70,speedMax:250,life:0.55,size:5});
@@ -258,10 +278,15 @@ function update(dt){
     });
   });
   projectiles = projectiles.filter(p=>!p._hit);
+  if(clearAllOrbsNow){
+    // Spawns verzögern und alle Orbs sofort leeren
+    spawnEntries.forEach(e=>{ e.nextSpawn = gameTime + 1; });
+    orbs.length = 0;
+  }
   orbs.forEach(o=>{
     if(o._hit){
       if(spawnEntries.includes(o.spawnEntry)){
-        o.spawnEntry.nextSpawn = gameTime + 1; // Respawn nach Treffer
+  o.spawnEntry.nextSpawn = gameTime + 1; // Respawn nach Treffer
       }
     }
   });
@@ -269,10 +294,16 @@ function update(dt){
 
   // collisions ship - orb
   orbs.forEach(o=>{
+    if(o.inert) return; // schwarze Orbs kollidieren nicht
     if(circleIntersect(ship,o)){
       if(!o.correct){
-        score -=1; if(score<0) score=0; scoreEl.textContent = score;
-        lives -=1; livesEl.textContent = lives; o._remove = true; shake();
+        if(!questionSolved){
+          score -=1; if(score<0) score=0; scoreEl.textContent = score;
+        }
+        if(!questionSolved){
+          lives -=1; livesEl.textContent = lives;
+        }
+        o._remove = true; shake();
         spawnParticles(o.x,o.y,{color:'#ff4444',count:16,speedMin:60,speedMax:260,life:0.6,size:6});
         if(spawnEntries.includes(o.spawnEntry)){
           o.spawnEntry.nextSpawn = gameTime + 1;
@@ -282,6 +313,12 @@ function update(dt){
     }
   });
   orbs = orbs.filter(o=>!o._remove);
+
+  // Fragewechsel erst, wenn alle Orbs der alten Runde verschwunden sind
+  if(pendingNextQuestionIndex!=null && orbs.length===0){
+    const nextIdx = pendingNextQuestionIndex; pendingNextQuestionIndex = null;
+    loadQuestion(nextIdx);
+  }
 }
 
 function shake(){

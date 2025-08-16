@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { useMemorySetup } from './memory/useMemorySetup';
 import { useMemoryGame } from './memory/useMemoryGame';
 import type { MemoryCard } from './memory/types';
+import { resolveMediaPath } from '../../lib/media';
 
 interface Props { lesson: Lesson; onCompleted: () => void; completedLessons: string[]; setCompletedLessons?: (v: string[] | ((p:string[])=>string[]))=>void }
 export default function MemoryGame({ lesson, onCompleted, completedLessons, setCompletedLessons }: Props){
@@ -18,7 +19,7 @@ export default function MemoryGame({ lesson, onCompleted, completedLessons, setC
 
   useEffect(()=>{ if(finished && !isAlreadyDone){ (async()=>{ try{ const username=session?.user?.username; setMarking(true); await finalizeLesson({ username, lessonId: lesson._id, courseId: lesson.courseId, type: lesson.type, earnedStar: lesson.type !== 'markdown' }); if(setCompletedLessons){ setCompletedLessons(prev=> prev.includes(lesson._id)? prev : [...prev, lesson._id]); } } finally { setMarking(false); onCompleted(); } })(); } },[finished, isAlreadyDone, lesson._id, lesson.courseId, lesson.type, onCompleted, session?.user?.username, setCompletedLessons]);
 
-  const renderCardFace=(card:MemoryCard)=>{ if(card.kind==='image') return <img src={card.value} alt="" className="w-full h-full object-contain"/>; if(card.kind==='audio') return <audio controls className="w-full h-full"><source src={card.value}/></audio>; return <span className="text-xs p-1 break-words leading-tight text-center block">{card.value}</span>; };
+  const renderCardFace=(card:MemoryCard)=>{ const p = resolveMediaPath(card.value); if(card.kind==='image') return <img src={p} alt="" className="w-full h-full object-contain" onError={(e)=>{ const el=e.currentTarget as HTMLImageElement; const name=(p.split('/').pop()||''); if(!el.dataset.fallback1 && name){ el.dataset.fallback1='1'; el.src = `/media/${name}`; } else if(!el.dataset.fallback2 && name){ el.dataset.fallback2='1'; el.src = `/uploads/${name}`; } }} />; if(card.kind==='audio') return <audio controls className="w-full h-full"><source src={p}/></audio>; return <span className="text-xs p-1 break-words leading-tight text-center block">{card.value}</span>; };
 
   return <div>
     {initialPairs.length===0 && <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">Keine Memory-Paare vorhanden.</div>}

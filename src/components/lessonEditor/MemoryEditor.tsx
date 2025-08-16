@@ -2,6 +2,7 @@
 import BackLink from '@/components/shared/BackLink';
 import TitleCategoryBar from '@/components/shared/TitleCategoryBar';
 import { Lesson } from './types';
+import { resolveMediaPath } from '@/lib/media';
 
 interface MemoryPair { a: { kind: string; value: string }; b: { kind: string; value: string }; }
 
@@ -18,8 +19,9 @@ export interface MemoryEditorProps {
 }
 
 function MemoryCardSide({ side }: { side: { kind: string; value: string } }) {
-  if (side.kind === 'image') return <img src={side.value} alt="" className="w-full h-16 object-contain bg-white rounded" />;
-  if (side.kind === 'audio') return <audio controls className="w-full"><source src={side.value} /></audio>;
+  const p = resolveMediaPath(side.value);
+  if (side.kind === 'image') return <img src={p} alt="" className="w-full h-16 object-contain bg-white rounded" />;
+  if (side.kind === 'audio') return <audio controls className="w-full"><source src={p} /></audio>;
   return <div className="h-16 flex items-center justify-center text-center p-1 break-words">{side.value}</div>;
 }
 
