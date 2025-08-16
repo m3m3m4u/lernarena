@@ -6,7 +6,7 @@
   },
   "private": true,
   "scripts": {
-  "dev": "cross-env PORT=3001 next dev",
+    "dev": "cross-env PORT=3001 next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -18,32 +18,32 @@
     "vercel-build": "next build"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "mongoose": "^8.17.0",
     "@vercel/blob": "^0.23.4",
+    "bcryptjs": "^3.0.2",
+    "docx": "^8.5.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.3",
+    "mongoose": "^8.17.0",
     "next": "15.4.6",
     "next-auth": "^4.24.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
-  "remark-gfm": "^4.0.1",
-  "xlsx": "^0.18.5",
-  "jspdf": "^2.5.1",
-  "jspdf-autotable": "^3.8.3",
-  "docx": "^8.5.0"
+    "remark-gfm": "^4.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/bcryptjs": "^2.4.6",
+    "cross-env": "^7.0.3",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
-    "cross-env": "^7.0.3",
-    "tsx": "^4.19.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

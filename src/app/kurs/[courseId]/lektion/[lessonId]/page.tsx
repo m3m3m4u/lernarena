@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react';
 import { MarkdownLesson, YouTubeLesson, MemoryGame, LueckentextPlayer, OrderingPlayer, MatchingUI, LessonFooterNavigation, SnakeGame } from '../../../../../components/lessonTypes';
 import { finalizeLesson } from '../../../../../lib/lessonCompletion';
 import type { Lesson, Question } from '../../../../../components/lessonTypes/types';
+import { resolveMediaPath, isImagePath, isAudioPath } from '../../../../../lib/media';
 
 
 export default function LessonPage() {
@@ -31,6 +32,8 @@ export default function LessonPage() {
   const [allLessons, setAllLessons] = useState<Lesson[]>([]); // für Footer-Navigation
   const [progressionMode, setProgressionMode] = useState<'linear'|'free'>('free');
   const [completedLessons, setCompletedLessons] = useState<string[]>([]); // erledigte Lektionen
+  // Wohin zurück? Kurs oder Übungsmenü
+  const [backHref, setBackHref] = useState<string>(`/kurs/${courseId}`);
   // Lückentext States (immer aufrufen, nicht konditional)
   const [ltAnswersState, setLtAnswersState] = useState<Record<number, string>>({});
   const [ltChecked, setLtChecked] = useState(false);
@@ -60,27 +63,36 @@ export default function LessonPage() {
 
   const loadLesson = useCallback(async () => {
     try {
-      const response = await fetch(`/api/kurs/${courseId}/lektionen`);
-      if (response.ok) {
+  const response = await fetch(`/api/kurs/${courseId}/lektionen`);
+  if (response.ok) {
         const payload = await response.json();
         const lessonArray = Array.isArray(payload) ? payload : (payload.lessons || []);
         setAllLessons(lessonArray);
-        // progressionMode vom Kurs laden (separate Fetch falls nicht in Antwort enthalten)
+        // progressionMode vom Kurs laden (jetzt meist in der Antwort enthalten)
         if (payload.course && payload.course.progressionMode) {
           setProgressionMode(payload.course.progressionMode === 'linear' ? 'linear' : 'free');
         } else {
-          // fallback: einzelner Kurs-Endpunkt
+          setProgressionMode('free');
+        }
+        // Back-Ziel bestimmen: wenn exercise-pool oder kein echter Kurs -> /ueben
+        const isExercisePool = String(courseId) === 'exercise-pool';
+        const hasRealCourse = !!(payload.course && (payload.course._id || payload.course.id || payload.course.key));
+        setBackHref(isExercisePool || !hasRealCourse ? '/ueben' : `/kurs/${courseId}`);
+        let foundLesson = (lessonArray as Array<{ _id?: string; id?: string }>).find((l) => l._id === lessonId || l.id === lessonId) as any;
+        if (!foundLesson) {
+          // Fallback: Direkt über globalen Endpoint laden (für exercise-pool oder abweichende Organisation)
           try {
-            const courseRes = await fetch(`/api/kurs/${courseId}`);
-            if (courseRes.ok) {
-              const cData = await courseRes.json();
-              if (cData.course && cData.course.progressionMode) {
-                setProgressionMode(cData.course.progressionMode === 'linear' ? 'linear' : 'free');
+            const lr = await fetch(`/api/lessons/${lessonId}`);
+            if (lr.ok) {
+              const ld = await lr.json();
+              if (ld?.lesson) {
+                foundLesson = ld.lesson;
+                setAllLessons([ld.lesson]);
+                setBackHref('/ueben');
               }
             }
           } catch {}
         }
-        const foundLesson = (lessonArray as Array<{ _id?: string; id?: string }>).find((l) => l._id === lessonId || l.id === lessonId);
         if (foundLesson) setLesson(foundLesson as unknown as Lesson);
         if (foundLesson) {
           // Initial Queue setzen
@@ -105,11 +117,38 @@ export default function LessonPage() {
             }
           } catch {}
         }
+      } else {
+        // Harte Fallback-Strategie: direkt per ID laden (z. B. exercise-pool oder Kurs-Fetch-Problem)
+        try {
+          const lr = await fetch(`/api/lessons/${lessonId}`);
+          if (lr.ok) {
+            const ld = await lr.json();
+            if (ld?.lesson) {
+              setLesson(ld.lesson as any);
+              setAllLessons([ld.lesson]);
+              setProgressionMode('free');
+              setBackHref('/ueben');
+            }
+          }
+        } catch {}
       }
-  setLoading(false);
+      setLoading(false);
     } catch (error) {
       console.error('Fehler beim Laden der Lektion:', error);
-  setLoading(false);
+      // Letzter Versuch: Direkt per ID
+      try {
+        const lr = await fetch(`/api/lessons/${lessonId}`);
+        if (lr.ok) {
+          const ld = await lr.json();
+          if (ld?.lesson) {
+            setLesson(ld.lesson as any);
+            setAllLessons([ld.lesson]);
+            setProgressionMode('free');
+            setBackHref('/ueben');
+          }
+        }
+      } catch {}
+      setLoading(false);
     }
   }, [courseId, lessonId]);
 
@@ -426,7 +465,7 @@ export default function LessonPage() {
       <div className="max-w-6xl mx-auto mt-10 p-6 bg-white rounded shadow">
         <h2 className="text-xl font-bold text-red-600">Lektion nicht gefunden</h2>
         <p className="text-gray-600 mt-2">Die angeforderte Lektion konnte nicht geladen werden.</p>
-        <button onClick={() => router.push(`/kurs/${courseId}`)} className="mt-4 text-blue-600 hover:underline">← Zurück zum Kurs</button>
+        <button onClick={() => router.push(backHref)} className="mt-4 text-blue-600 hover:underline">← {backHref === '/ueben' ? 'Zurück zu Übungen' : 'Zurück zum Kurs'}</button>
       </div>
     );
   }
@@ -434,7 +473,7 @@ export default function LessonPage() {
   const totalQuestions = lesson.questions?.length || 0;
   const progress = totalQuestions > 0 ? (mastered.size / totalQuestions) * 100 : 0;
   const currentQuestion = lesson.questions && questionQueue.length > 0 ? lesson.questions[questionQueue[0]] : undefined;
-
+  const currentMedia = currentQuestion?.mediaLink ? resolveMediaPath(String(currentQuestion.mediaLink)) : '';
   // Vorberechnete korrekte Antworten (normalisiert) für Anzeige/Checks
   const correctListNormalized = (currentQuestion && (Array.isArray(currentQuestion.correctAnswers) && currentQuestion.correctAnswers.length
     ? currentQuestion.correctAnswers
@@ -457,24 +496,24 @@ export default function LessonPage() {
   }
 
   if (lesson && isSnake) {
-    return (
+  return (
       <div className="max-w-6xl mx-auto mt-10 p-6">
-        <button onClick={() => router.push(`/kurs/${courseId}`)} className="text-blue-600 hover:underline mb-4">← Zurück zum Kurs</button>
+    <button onClick={() => router.push(backHref)} className="text-blue-600 hover:underline mb-4">← {backHref === '/ueben' ? 'Zurück zu Übungen' : 'Zurück zum Kurs'}</button>
         <h1 className="text-2xl font-bold mb-6">{lesson.title}</h1>
         <SnakeGame lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} />
-  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} />
+  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} backHref={backHref} />
       </div>
     );
   }
 
   // Render für Markdown-Lektion
   if (isMarkdown) {
-    return (
+  return (
       <div className="max-w-6xl mx-auto mt-10 p-6">
-        <button onClick={() => router.push(`/kurs/${courseId}`)} className="text-blue-600 hover:underline mb-4">← Zurück zum Kurs</button>
+    <button onClick={() => router.push(backHref)} className="text-blue-600 hover:underline mb-4">← {backHref === '/ueben' ? 'Zurück zu Übungen' : 'Zurück zum Kurs'}</button>
         <h1 className="text-2xl font-bold mb-6">{lesson.title}</h1>
         <MarkdownLesson lesson={lesson} courseId={courseId} completedLessons={completedLessons} setCompletedLessons={setCompletedLessons} sessionUsername={session?.user?.username} />
-  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} />
+  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} backHref={backHref} />
       </div>
     );
   }
@@ -488,7 +527,7 @@ export default function LessonPage() {
   return (
   <div className="max-w-6xl mx-auto mt-10 p-6">
       <div className="mb-6">
-        <button onClick={() => router.push(`/kurs/${courseId}`)} className="text-blue-600 hover:underline mb-4">← Zurück zum Kurs</button>
+        <button onClick={() => router.push(backHref)} className="text-blue-600 hover:underline mb-4">← {backHref === '/ueben' ? 'Zurück zu Übungen' : 'Zurück zum Kurs'}</button>
         <h1 className="text-2xl font-bold mb-2">{lesson.title}</h1>
   {!isVideo && (
           <>
@@ -508,28 +547,31 @@ export default function LessonPage() {
           <>
             <h2 className="text-xl font-semibold mb-6">{currentQuestion.question}</h2>
             {/* Media */}
-            {!isMatching && currentQuestion.mediaLink && (
+            {!isMatching && currentMedia && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                {currentQuestion.mediaLink.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                {isImagePath(currentMedia) ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img 
-                    src={currentQuestion.mediaLink} 
+                    src={currentMedia} 
                     alt="Frage Bild" 
                     className="max-w-full max-h-64 object-contain mx-auto border rounded"
+                    onError={(e)=>{ const el=e.currentTarget as HTMLImageElement; const name=(currentMedia.split('/').pop()||''); if(!el.dataset.fallback1 && name){ el.dataset.fallback1='1'; el.src=`/media/bilder/${name}`; } else if(!el.dataset.fallback2 && name){ el.dataset.fallback2='1'; el.src=`/media/${name}`; } }}
                   />
-                ) : currentQuestion.mediaLink.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+                ) : isAudioPath(currentMedia) ? (
                   <audio controls className="w-full max-w-md mx-auto">
-                    <source src={currentQuestion.mediaLink} />
+                    <source src={currentMedia} />
+                    <source src={currentMedia.replace('/uploads/','/media/audio/')}/>
+                    <source src={currentMedia.replace('/uploads/','/media/')}/>
                     <p className="text-red-600 text-sm">Audio wird vom Browser nicht unterstützt</p>
                   </audio>
                 ) : (
                   <a 
-                    href={currentQuestion.mediaLink} 
+                    href={currentMedia} 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-blue-600 hover:underline break-all"
                   >
-                    📎 {currentQuestion.mediaLink}
+                    📎 {currentMedia}
                   </a>
                 )}
               </div>
@@ -626,7 +668,7 @@ export default function LessonPage() {
       </div>
 
       {/* Footer Navigation */}
-  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} />
+  <LessonFooterNavigation allLessons={allLessons} currentLessonId={lessonId} courseId={courseId} completedLessons={completedLessons} progressionMode={progressionMode} backHref={backHref} />
       {isMemory && completed && <div className="mt-6 text-green-700 font-medium">✔️ Memory abgeschlossen!</div>}
     </div>
   );
