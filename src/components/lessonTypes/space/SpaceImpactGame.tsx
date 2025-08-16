@@ -78,6 +78,7 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
   const gameTimeRef=useRef(0);
   const shootCooldownRef=useRef(0);
   const inputRef=useRef({up:false,down:false,shoot:false});
+  const questionSolvedRef=useRef(false);
   const lastTimeRef=useRef(0); const lastFrameDtRef=useRef(0);
   const wrongFlashRef=useRef(0); const correctFlashRef=useRef(0); const shakeRef=useRef(0);
 
@@ -92,6 +93,7 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
   const loadQuestion=(idx?:number, delaySeconds:number=0)=>{
     if(idx==null||idx>=blocks.length) idx=pickNextQuestionIndex();
     currentQuestionIndexRef.current=idx;
+    questionSolvedRef.current=false;
     const q=blocks[idx];
     setQuestionText((q as unknown as { question?: string; prompt?: string; title?: string }).question || (q as unknown as { prompt?: string }).prompt || (q as unknown as { title?: string }).title || '');
     let sourceUnknown = (q as unknown as { answers?: unknown; options?: unknown; choices?: unknown; alternatives?: unknown; antworten?: unknown }).answers
@@ -156,11 +158,34 @@ export default function SpaceImpactGame({ lesson, courseId, completedLessons, se
       // particles
       particlesRef.current.forEach(pt=>{ pt.x+=pt.vx*dt; pt.y+=pt.vy*dt; pt.life-=dt; pt.vx*=(1-1.5*dt); pt.vy*=(1-1.5*dt); pt.vy+=40*dt*0.3; }); particlesRef.current=particlesRef.current.filter(p=>p.life>0);
       // projectile/orb collisions
-  projectilesRef.current.forEach(p=>{ orbsRef.current.forEach(o=>{ if(circleIntersect(p,o)){ p._hit=true; o._hit=true; if(o.correct){ setScore(s=>{ const ns=s+1; if(ns>=targetScore) setFinished(true); return ns; }); decreaseWeight(currentQuestionIndexRef.current,0.6); spawnParticles(o.x,o.y,{color:'#4ade80',count:24,speedMin:110,speedMax:360,life:0.85,size:6}); // früh neues Set vorbereiten, aber alte falsche Kugeln weiterfliegen lassen
-      const nextIdx=pickNextQuestionIndex(); loadQuestion(nextIdx,2.0); wrongFlashRef.current=0; correctFlashRef.current=1; shakeRef.current=0; } else { setScore(s=>Math.max(0,s-1)); setLives(l=>{ const nl=Math.max(0,l-1); if(nl<=0) endGame(); return nl; }); increaseWeight(currentQuestionIndexRef.current,4); spawnParticles(o.x,o.y,{color:'#ff4444',count:14,speedMin:70,speedMax:260,life:0.55,size:5}); wrongFlashRef.current=1; correctFlashRef.current=0; shakeRef.current=0.4; } } }); });
+  projectilesRef.current.forEach(p=>{ orbsRef.current.forEach(o=>{ if(circleIntersect(p,o)){ p._hit=true; o._hit=true; if(o.correct){
+        // Richtige Kugel getroffen: Runde gelöst
+        questionSolvedRef.current = true;
+        setScore(s=>{ const ns=s+1; if(ns>=targetScore) setFinished(true); return ns; });
+        decreaseWeight(currentQuestionIndexRef.current,0.6);
+        spawnParticles(o.x,o.y,{color:'#4ade80',count:24,speedMin:110,speedMax:360,life:0.85,size:6});
+        // Alle anderen Kugeln sofort explodieren lassen und entfernen
+        orbsRef.current.forEach(rem=>{ if(rem!==o){
+          spawnParticles(rem.x,rem.y,{color:'#bbbbbb',count:14,speedMin:70,speedMax:220,life:0.5,size:5});
+          rem._hit = true;
+        }});
+        const nextIdx=pickNextQuestionIndex();
+        // Nächste Frage sofort laden, neue Spawns leicht verzögert
+        loadQuestion(nextIdx,1.0);
+        wrongFlashRef.current=0; correctFlashRef.current=1; shakeRef.current=0;
+      } else {
+        // Falsche Kugel: nur bestrafen, wenn die richtige in dieser Runde noch nicht getroffen wurde
+        if(!questionSolvedRef.current){
+          setScore(s=>Math.max(0,s-1));
+          setLives(l=>{ const nl=Math.max(0,l-1); if(nl<=0) endGame(); return nl; });
+          increaseWeight(currentQuestionIndexRef.current,4);
+          spawnParticles(o.x,o.y,{color:'#ff4444',count:14,speedMin:70,speedMax:260,life:0.55,size:5});
+          wrongFlashRef.current=1; correctFlashRef.current=0; shakeRef.current=0.4;
+        }
+      } } }); });
       projectilesRef.current=projectilesRef.current.filter(p=>!p._hit); orbsRef.current=orbsRef.current.filter(o=>!o._hit);
-      // ship collision with wrong orb
-      orbsRef.current.forEach(o=>{ if(circleIntersect(ship,o) && !o.correct){ setScore(s=>Math.max(0,s-1)); setLives(l=>{ const nl=Math.max(0,l-1); if(nl<=0) endGame(); return nl; }); spawnParticles(o.x,o.y,{color:'#ff4444',count:18,speedMin:70,speedMax:280,life:0.6,size:6}); o._remove=true; wrongFlashRef.current=1; correctFlashRef.current=0; shakeRef.current=0.4; }}); orbsRef.current=orbsRef.current.filter(o=>!o._remove);
+  // ship collision with wrong orb (nur bestrafen, wenn noch nicht gelöst)
+  orbsRef.current.forEach(o=>{ if(circleIntersect(ship,o) && !o.correct){ if(!questionSolvedRef.current){ setScore(s=>Math.max(0,s-1)); setLives(l=>{ const nl=Math.max(0,l-1); if(nl<=0) endGame(); return nl; }); spawnParticles(o.x,o.y,{color:'#ff4444',count:18,speedMin:70,speedMax:280,life:0.6,size:6}); wrongFlashRef.current=1; correctFlashRef.current=0; shakeRef.current=0.4; } o._remove=true; }}); orbsRef.current=orbsRef.current.filter(o=>!o._remove);
       // decay flashes/shake
       if(wrongFlashRef.current>0) wrongFlashRef.current=Math.max(0,wrongFlashRef.current-dt*2.5); if(correctFlashRef.current>0) correctFlashRef.current=Math.max(0,correctFlashRef.current-dt*1.3); if(shakeRef.current>0) shakeRef.current=Math.max(0,shakeRef.current-dt*2.5);
     };
