@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { resolveMediaPath, isImagePath, isAudioPath } from '../../lib/media';
 
 interface MatchingProps { question: { allAnswers: string[]; correctAnswers?: string[] }; onSolved: () => void; }
 export default function MatchingUI({ question, onSolved }: MatchingProps){
@@ -8,9 +9,24 @@ export default function MatchingUI({ question, onSolved }: MatchingProps){
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [matched, setMatched] = useState<Record<string,string>>({});
   const [errorPair, setErrorPair] = useState<{ left: string; right: string } | null>(null);
-  const isImage = (s:string)=> /\.(jpg|jpeg|png|gif|webp)$/i.test(s);
-  const isAudio = (s:string)=> /\.(mp3|wav|ogg|m4a)$/i.test(s);
-  const renderOption = (value:string)=>{ if(isImage(value)) return <div className="w-full flex items-center justify-center"><img src={value} alt="" className="max-h-36 w-auto object-contain border rounded bg-white"/></div>; if(isAudio(value)) return <div className="w-full flex items-center justify-center"><audio controls className="w-full max-w-xs border rounded bg-white p-1"><source src={value}/></audio></div>; return <span className="break-words">{value}</span>; };
+  const renderOption = (value:string)=>{ 
+    const p = resolveMediaPath(value);
+    if(isImagePath(p)) return <div className="w-full flex items-center justify-center">
+      <img 
+        src={p} 
+        alt="" 
+        className="max-h-36 w-auto object-contain border rounded bg-white"
+        onError={(e)=>{ const el=e.currentTarget as HTMLImageElement; const name=(p.split('/').pop()||''); if(!el.dataset.fallback1 && name){ el.dataset.fallback1='1'; el.src=`/media/${name}`; } else if(!el.dataset.fallback2 && name){ el.dataset.fallback2='1'; el.src=`/uploads/${name}`; } }}
+      />
+    </div>;
+    if(isAudioPath(p)) return <div className="w-full flex items-center justify-center">
+      <audio controls className="w-full max-w-xs border rounded bg-white p-1">
+        <source src={p}/>
+        <source src={p.replace('/media/audio/','/media/')} />
+        <source src={p.replace('/media/audio/','/uploads/')} />
+      </audio>
+    </div>;
+    return <span className="break-words">{value}</span>; };
   useEffect(()=>{ const pairs=(question.correctAnswers||[]).map(k=>{ const [l,r]= String(k).split('=>'); return { l:(l||'').trim(), r:(r||'').trim() }; }).filter(p=>p.l&&p.r); const lefts=pairs.map(p=>p.l); const rights=pairs.map(p=>p.r); const shuffle=<T,>(arr:T[])=>arr.map(v=>[Math.random(),v] as const).sort((a,b)=>a[0]-b[0]).map(([,v])=>v); setLeftOptions(shuffle(lefts)); setRightOptions(shuffle(rights)); setMatched({}); setSelectedLeft(null); setErrorPair(null); },[question.correctAnswers]);
   const isCorrectPair=(l:string,r:string)=> (question.correctAnswers||[]).includes(`${l}=>${r}`);
   const allMatched= Object.keys(matched).length>0 && Object.keys(matched).length === (question.correctAnswers?.length||0);

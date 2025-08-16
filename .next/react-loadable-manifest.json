@@ -1,0 +1,110 @@
+{
+  "..\\node_modules\\next\\dist\\client\\dev\\hot-reloader\\app\\use-websocket.js -> @vercel/turbopack-ecmascript-runtime/browser/dev/hmr-client/hmr-client.ts": {
+    "id": "..\\node_modules\\next\\dist\\client\\dev\\hot-reloader\\app\\use-websocket.js -> @vercel/turbopack-ecmascript-runtime/browser/dev/hmr-client/hmr-client.ts",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_next_dist_client_dev_noop-turbopack-hmr_js.js"
+    ]
+  },
+  "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
+    "id": "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_app",
+    "files": [
+      "static/chunks/_pages-dir-browser_node_modules_next_dist_pages__app_js.js"
+    ]
+  },
+  "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_error": {
+    "id": "..\\node_modules\\next\\dist\\client\\index.js -> ../pages/_error",
+    "files": [
+      "static/chunks/_pages-dir-browser_node_modules_next_dist_pages__error_js.js"
+    ]
+  },
+  "app\\arena\\isostadt\\page.tsx -> @/components/arena/isostadt/IsostadtCanvas": {
+    "id": "app\\arena\\isostadt\\page.tsx -> @/components/arena/isostadt/IsostadtCanvas",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_arena_isostadt_IsostadtCanvas_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/MemoryEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/MemoryEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_MemoryEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/OrderingEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/OrderingEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_OrderingEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/SnakeEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> ../../../../components/lessonEditor/SnakeEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_SnakeEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/LueckentextEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/LueckentextEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_LueckentextEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/MarkdownEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/MarkdownEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_MarkdownEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/MatchingEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/MatchingEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_MatchingEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/TextAnswerEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/TextAnswerEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_TextAnswerEditor_tsx.js"
+    ]
+  },
+  "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/VideoEditor": {
+    "id": "app\\autor\\lektion\\[lessonId]\\page.tsx -> @/components/lessonEditor/VideoEditor",
+    "files": [
+      "static/chunks/_app-pages-browser_src_components_lessonEditor_VideoEditor_tsx.js"
+    ]
+  },
+  "components\\lessonTypes\\LueckentextPlayer.tsx -> react-markdown": {
+    "id": "components\\lessonTypes\\LueckentextPlayer.tsx -> react-markdown",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_react-markdown_index_js.js"
+    ]
+  },
+  "components\\lessonTypes\\LueckentextPlayer.tsx -> remark-gfm": {
+    "id": "components\\lessonTypes\\LueckentextPlayer.tsx -> remark-gfm",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_remark-gfm_index_js.js"
+    ]
+  },
+  "components\\lessonTypes\\MarkdownLesson.tsx -> react-markdown": {
+    "id": "components\\lessonTypes\\MarkdownLesson.tsx -> react-markdown",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_react-markdown_index_js.js"
+    ]
+  },
+  "components\\lessonTypes\\MarkdownLesson.tsx -> remark-gfm": {
+    "id": "components\\lessonTypes\\MarkdownLesson.tsx -> remark-gfm",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_remark-gfm_index_js.js"
+    ]
+  },
+  "components\\shared\\MarkdownPreview.tsx -> react-markdown": {
+    "id": "components\\shared\\MarkdownPreview.tsx -> react-markdown",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_react-markdown_index_js.js"
+    ]
+  },
+  "components\\shared\\MarkdownPreview.tsx -> remark-gfm": {
+    "id": "components\\shared\\MarkdownPreview.tsx -> remark-gfm",
+    "files": [
+      "static/chunks/_app-pages-browser_node_modules_remark-gfm_index_js.js"
+    ]
+  }
+}

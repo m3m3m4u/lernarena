@@ -1,9 +1,9 @@
 "use client";
 import type { Lesson } from './types';
 
-interface Props { allLessons: Lesson[]; currentLessonId: string; courseId: string; completedLessons: string[]; progressionMode?: 'linear' | 'free'; }
+interface Props { allLessons: Lesson[]; currentLessonId: string; courseId: string; completedLessons: string[]; progressionMode?: 'linear' | 'free'; backHref?: string; }
 
-export default function LessonFooterNavigation({ allLessons, currentLessonId, courseId, completedLessons, progressionMode = 'free' }: Props) {
+export default function LessonFooterNavigation({ allLessons, currentLessonId, courseId, completedLessons, progressionMode = 'free', backHref }: Props) {
   if (!allLessons || allLessons.length === 0) return null;
   return (
     <div className="mt-10 border-t pt-6">
@@ -35,7 +35,7 @@ export default function LessonFooterNavigation({ allLessons, currentLessonId, co
         })}
       </div>
       <div className="text-center mt-6">
-        <a href={`/kurs/${courseId}`} className="text-blue-600 hover:underline text-sm">← Zurück zur Kursübersicht</a>
+        <a href={backHref || `/kurs/${courseId}`} className="text-blue-600 hover:underline text-sm">← {backHref === '/ueben' ? 'Zurück zu Übungen' : 'Zurück zur Kursübersicht'}</a>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { resolveMediaPath, isImagePath, isAudioPath } from "../../../../lib/media";
 
 interface SCQuestion {
   question: string;
@@ -83,7 +84,7 @@ Falsche Audio-Antwort`);
       const mediaMatch = firstLine.match(/^(.+?)\s*\[(.+?)\]$/);
       if (mediaMatch) {
         questionText = mediaMatch[1].trim();
-        mediaLink = mediaMatch[2].trim();
+        mediaLink = resolveMediaPath(mediaMatch[2].trim());
       } else {
         questionText = firstLine;
       }
@@ -296,13 +297,13 @@ Andere falsche Antwort`}
 
                   <h4 className="font-semibold mb-3">{q.question}</h4>
 
-                  {q.mediaLink && (
+      {q.mediaLink && (
                     <div className="mb-3 p-3 bg-gray-100 rounded border">
-                      {q.mediaLink.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+          {isImagePath(q.mediaLink) ? (
                         <div>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img 
-                            src={q.mediaLink} 
+            src={resolveMediaPath(q.mediaLink)} 
                             alt="Frage Media" 
                             className="max-w-full max-h-48 object-contain border rounded bg-white"
                             onError={(e) => {
@@ -315,22 +316,22 @@ Andere falsche Antwort`}
                             }}
                           />
                         </div>
-                      ) : q.mediaLink.match(/\.(mp3|wav|ogg|m4a)$/i) ? (
+          ) : isAudioPath(q.mediaLink) ? (
                         <div>
                           <audio controls className="w-full max-w-md">
-                            <source src={q.mediaLink} />
+            <source src={resolveMediaPath(q.mediaLink)} />
                             <p className="text-red-600 text-sm">❌ Audio wird vom Browser nicht unterstützt</p>
                           </audio>
                         </div>
                       ) : (
                         <div>
                           <a 
-                            href={q.mediaLink} 
+            href={resolveMediaPath(q.mediaLink)} 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="text-blue-600 hover:underline break-all"
                           >
-                            📎 {q.mediaLink}
+            📎 {resolveMediaPath(q.mediaLink)}
                           </a>
                         </div>
                       )}
